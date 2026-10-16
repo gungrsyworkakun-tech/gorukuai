@@ -137,6 +137,25 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
 #menu{display:grid}#saved{display:none}nav{padding:8px 10px}nav .tab{padding:7px 10px}
 .empty h2{font-size:30px}.u .b{max-width:92%}.av{display:none}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+@media(max-width:760px){
+nav{gap:2px;overflow-x:auto;scrollbar-width:none;padding:8px 10px}nav::-webkit-scrollbar{display:none}
+nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .sp{flex:1 0 8px}.ibtn{flex-shrink:0}
+#msgs{padding:18px 12px 8px}.m{margin-bottom:20px}
+#bar{padding:6px 10px calc(10px + env(safe-area-inset-bottom,0px))}
+#comp{border-radius:22px;padding:8px 10px 8px 12px}
+#in,.card input,.card select,.card textarea,.srch{font-size:16px}
+.pop{max-width:calc(100vw - 28px)}.mbtn{max-width:130px}.go{padding:8px 16px}
+.thumbs img{max-width:100%;max-height:200px}
+.frow{flex-wrap:wrap}.frow>div{flex-basis:100%}.frow .btn{flex:1}
+.vhead{flex-wrap:wrap;padding:10px 12px}
+.ebox{width:100%;max-width:none;height:100dvh;border-radius:0}
+#viewer{align-items:flex-end}.vbox{width:100%;max-width:none;max-height:92dvh;border-radius:16px 16px 0 0}
+.pad{padding:16px 12px}.card{padding:14px}
+.empty{margin-top:6vh}.sug button{font-size:13px;padding:8px 13px}
+.cb pre{font-size:12.5px;padding:12px}.mdl{flex-wrap:wrap}
+.btns .btn{flex:1 1 auto}.row i{width:90px}
+#toast{width:max-content;max-width:90vw;text-align:center;bottom:90px}}
 </style>
 </head>
 <body>
@@ -340,7 +359,7 @@ function renderThread(force){GF=[];CODES=[];const c=chat(),t=$('#thread'),box=$(
   t.innerHTML=c.msgs.map((m,mi)=>{if(mi===last){lastG=GF.length;lastC=CODES.length}return `<div class="m ${m.role==='user'?'u':''} ${m.err?'err':''}">${m.role==='user'?'':'<div class="av">'+LOGO(28)+'</div>'}<div class="b">${inner(m,mi,last)}</div></div>`}).join('');
   if(near||force)box.scrollTop=box.scrollHeight;updDown()}
 let lastG=0,lastC=0,rq=0;
-function inner(m,mi,last){const u=m.role==='user',live=busy&&mi===last&&!u;return thumbs(m,mi)+(m.notes||[]).map(n=>'<div class="note">'+esc(n)+'</div>').join('')+md(m.content,mi,live)+(live?think(m):'')+(!u&&!live&&m.content?'<div class="mdl">'+(m.model&&!m.err?'<span>'+esc(m.model)+'</span>':'')+(m.ms&&!m.err?'<span>'+(m.ttft/1000).toFixed(1)+' dtk ke kata pertama, total '+(m.ms/1000).toFixed(1)+' dtk</span>':'')+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':'')}
+function inner(m,mi,last){const u=m.role==='user',live=busy&&mi===last&&!u;return thumbs(m,mi)+(m.notes||[]).map(n=>'<div class="note">'+esc(n)+'</div>').join('')+md(m.content,mi,live)+(live?think(m):'')+(!u&&!live&&m.content?'<div class="mdl">'+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':'')}
 function stream(){if(rq)return;rq=setTimeout(()=>{rq=0;const c=chat();if(!c||!busy)return;const mi=c.msgs.length-1,m=c.msgs[mi],els=document.querySelectorAll('#thread .m'),el=els[els.length-1];
   if(!m||!el||m.role==='user'||els.length!==c.msgs.length){renderThread();return}
   const box=$('#msgs'),near=box.scrollHeight-box.scrollTop-box.clientHeight<140;GF.length=lastG;CODES.length=lastC;el.className='m'+(m.err?' err':'');el.querySelector('.b').innerHTML=inner(m,mi,mi);if(near)box.scrollTop=box.scrollHeight;updDown()},60)}
@@ -417,30 +436,71 @@ async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='va
     const ids=((await r.json()).data||[]).map(m=>m.id);$('#models').innerHTML=ids.map(i=>`<option value="${esc(i)}">`).join('');
     d.style.color='var(--acc)';d.textContent='Koneksi berhasil. '+ids.length+' model ditemukan.'+(S.cfg.models.some(m=>!ids.includes(m.id))?' Tapi ada nama model di Daftar model yang tidak ada di server, periksa ejaannya.':'');
   }catch(e){bad('Browser tidak bisa menjangkau server ('+e.message+'). Kemungkinan: tidak ada internet, Base URL salah ketik, atau server memblokir akses langsung dari browser (CORS).')}}
-const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Ekstensi yang didukung: .docx dan .pdf (teks biasa; baris diawali # atau ## menjadi judul, baris diawali tanda minus menjadi poin); .xlsx (tulis isi sebagai CSV dengan baris pertama berisi judul kolom; rumus boleh diawali tanda sama dengan); .pptx (tiap slide dimulai baris # Judul slide lalu poin diawali tanda minus, antar slide dipisah baris berisi tiga tanda minus); .html (satu halaman lengkap dengan CSS dan JS di dalamnya, bisa dipratinjau pengguna); serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa di dalam jawaban. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas). Pengguna bisa mengunduh svg sebagai PNG atau JPG dari editor, jadi jika diminta PNG atau JPG tetap buat svg. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama. Setelah blok file, beri penjelasan singkat.';
+const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, presentasi, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Format: .docx dan .pdf ditulis dengan markdown (# judul, ## subjudul, - poin, 1. daftar bernomor, **tebal**, tabel markdown dengan tanda |); .xlsx ditulis sebagai CSV dengan baris pertama judul kolom, rumus diawali tanda sama dengan, dan untuk beberapa sheet awali tiap sheet dengan baris ### NamaSheet; .pptx: tiap slide dimulai baris # Judul slide lalu poin diawali tanda minus (maksimal sekitar 6 poin singkat per slide), antar slide dipisah baris berisi tiga tanda minus, slide pertama hanya berisi judul sebagai sampul, tabel markdown boleh; .html satu halaman lengkap dengan CSS dan JS di dalamnya; serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas); pengguna bisa mengunduhnya sebagai PNG atau JPG dari editor. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama. Setelah blok file, beri penjelasan singkat.';
 const MIME={csv:'text/csv;charset=utf-8',json:'application/json',html:'text/html',md:'text/markdown'};
 function xe(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
 function line(l){let x=l.replace(/\*\*/g,''),lv=0;const h=x.match(/^(#{1,3})\s+(.*)/);if(h){x=h[2];lv=h[1].length}else if(/^\s*[-*]\s+/.test(x))x='\u2022  '+x.replace(/^\s*[-*]\s+/,'');return{x,lv}}
-async function mkDocx(text){
-  const ps=text.replace(/\r/g,'').split('\n').map(l=>{const{x,lv}=line(l);return '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr>'+(lv?'<w:b/>':'')+'<w:sz w:val="'+(lv?[36,30,26][lv-1]:22)+'"/></w:rPr><w:t xml:space="preserve">'+xe(x)+'</w:t></w:r></w:p>'}).join('');
+const stripMd=x=>x.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/`([^`]+)`/g,'$1');
+function parseMd(text){const L=text.replace(/\r/g,'').split('\n'),o=[];let i=0,m;
+  while(i<L.length){const l=L[i];
+    if(!l.trim()){o.push({t:'sp'});i++}
+    else if(l.includes('|')&&TB.test(L[i+1]||'')){const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim()),rows=[cells(l)];i+=2;while(i<L.length&&L[i].trim()&&L[i].includes('|'))rows.push(cells(L[i++]));o.push({t:'tb',rows})}
+    else if(m=l.match(/^(#{1,4})\s+(.*)/)){o.push({t:'h',lv:m[1].length,x:m[2]});i++}
+    else if(m=l.match(/^\s*[-*]\s+(.*)/)){o.push({t:'li',x:m[1]});i++}
+    else if(m=l.match(/^\s*(\d+)[.)]\s+(.*)/)){o.push({t:'li',x:m[1]+'. '+m[2],num:1});i++}
+    else{o.push({t:'p',x:l.trim()});i++}}
+  return o}
+function runs(x,b,sz){return x.split(/(\*\*[^*]+\*\*)/).filter(Boolean).map(p=>'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>'+(b||/^\*\*/.test(p)?'<w:b/>':'')+'<w:sz w:val="'+sz+'"/></w:rPr><w:t xml:space="preserve">'+xe(p.replace(/^\*\*|\*\*$/g,''))+'</w:t></w:r>').join('')}
+async function mkDocx(text){const HS=[40,32,28,24],bd=['top','left','bottom','right','insideH','insideV'].map(k=>'<w:'+k+' w:val="single" w:sz="4" w:color="BBBBBB"/>').join('');
+  const ps=parseMd(text).map(b=>{
+    if(b.t==='sp')return '';
+    if(b.t==='h')return '<w:p><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/></w:pPr>'+runs(b.x,true,HS[b.lv-1])+'</w:p>';
+    if(b.t==='li')return '<w:p><w:pPr><w:spacing w:after="60"/><w:ind w:left="540" w:hanging="270"/></w:pPr>'+runs((b.num?'':'\u2022\u00a0\u00a0')+b.x,false,22)+'</w:p>';
+    if(b.t==='tb'){const n=Math.max(...b.rows.map(r=>r.length));return '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>'+bd+'</w:tblBorders><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>'+b.rows.map((r,ri)=>'<w:tr>'+Array.from({length:n},(_,k)=>'<w:tc><w:tcPr>'+(ri?'':'<w:shd w:val="clear" w:color="auto" w:fill="EEEEEE"/>')+'</w:tcPr><w:p><w:pPr><w:spacing w:before="40" w:after="40"/></w:pPr>'+runs(r[k]||'',!ri,20)+'</w:p></w:tc>').join('')+'</w:tr>').join('')+'</w:tbl><w:p/>'}
+    return '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>'+runs(b.x,false,22)+'</w:p>'}).join('');
   const z=new JSZip(),H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
   z.file('[Content_Types].xml',H+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
   z.file('_rels/.rels',H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-  z.file('word/document.xml',H+'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+ps+'</w:body></w:document>');
+  z.file('word/document.xml',H+'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+ps+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>');
   return z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
-function mkPdf(text){const{jsPDF}=window.jspdf,d=new jsPDF({unit:'pt',format:'a4'}),W=d.internal.pageSize.getWidth()-100,Hh=d.internal.pageSize.getHeight()-60;let y=60;
-  for(const l of text.replace(/\r/g,'').split('\n')){const{x,lv}=line(l),sz=lv?[20,16,13][lv-1]:11;d.setFont('helvetica',lv?'bold':'normal');d.setFontSize(sz);
-    for(const w of(x?d.splitTextToSize(x,W):[''])){if(y>Hh){d.addPage();y=60}d.text(w,50,y);y+=sz*1.5}y+=2}
+function mkPdf(text){const{jsPDF}=window.jspdf,d=new jsPDF({unit:'pt',format:'a4'}),PW=d.internal.pageSize.getWidth(),SH=d.internal.pageSize.getHeight(),W=PW-110,Hh=SH-60;let y=60;d.setLineHeightFactor(1.3);
+  const clean=t=>stripMd(t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/[^\x00-\xFF\u2022]/gu,'');
+  const put=(t,sz,bold,x0)=>{d.setFont('helvetica',bold?'bold':'normal');d.setFontSize(sz);for(const w of d.splitTextToSize(t,PW-55-x0)){if(y>Hh){d.addPage();y=60}d.text(w,x0,y);y+=sz*1.45}};
+  for(const b of parseMd(text)){
+    if(b.t==='sp')y+=4;
+    else if(b.t==='h'){y+=6;put(clean(b.x),[22,17,14,12][b.lv-1],true,55);y+=2}
+    else if(b.t==='li')put((b.num?'':'\u2022 ')+clean(b.x),11,false,70);
+    else if(b.t==='tb'){const n=Math.max(...b.rows.map(r=>r.length)),cw=W/n;
+      b.rows.forEach((r,ri)=>{d.setFont('helvetica',ri?'normal':'bold');d.setFontSize(10);const cs=Array.from({length:n},(_,k)=>d.splitTextToSize(clean(r[k]||''),cw-10)),h=Math.max(...cs.map(c=>c.length))*13+10;
+        if(y+h>Hh+20){d.addPage();y=60}if(!ri){d.setFillColor(238,238,238);d.rect(55,y-12,W,h,'F')}d.setDrawColor(190);cs.forEach((c,k)=>{d.rect(55+k*cw,y-12,cw,h);d.text(c,60+k*cw,y+2)});y+=h});y+=8}
+    else put(clean(b.x),11,false,55)}
+  const np=d.getNumberOfPages();for(let i=1;i<=np;i++){d.setPage(i);d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(150);d.text(i+' / '+np,PW/2,SH-25,{align:'center'})}
   return d.output('blob')}
-function mkXlsx(c){const wb=XLSX.read(c,{type:'string'});return new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
-async function mkPptx(c){const p=new PptxGenJS();p.layout='LAYOUT_WIDE';
-  for(const sec of c.split(/\n-{3,}\n/)){const ls=sec.split('\n').map(x=>x.trim()).filter(Boolean),t=ls.find(x=>/^#/.test(x)),body=ls.filter(x=>x!==t).map(x=>x.replace(/^[-*]\s+/,'').replace(/\*\*/g,'')),sl=p.addSlide();sl.background={color:'0B0B0B'};
-    sl.addText((t||'').replace(/^#+\s*/,''),{x:.6,y:.4,w:12,h:1,fontSize:32,bold:true,color:'FFFFFF'});
-    if(body.length)sl.addText(body.map(b=>({text:b,options:{bullet:true,breakLine:true}})),{x:.6,y:1.6,w:12,h:5,fontSize:20,color:'DDDDDD',valign:'top'})}
+function csvRows(t,fs){const R=[];let r=[],f='',q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}else if(ch==='"')q=true;else if(ch===fs){r.push(f);f=''}else if(ch==='\n'){r.push(f);R.push(r);r=[];f=''}else f+=ch}r.push(f);R.push(r);return R.filter(r=>r.some(x=>x.trim()))}
+function mkXlsx(c){c=c.replace(/\r/g,'').trim();const wb=XLSX.utils.book_new(),used=new Set();
+  const secs=/^###\s/m.test(c)?c.split(/^###\s+/m).filter(x=>x.trim()).map(x=>{const k=x.indexOf('\n');return k<0?[x.trim(),'']:[x.slice(0,k).trim(),x.slice(k+1)]}):[['Sheet1',c]];
+  for(const[nm,body]of secs){let rows;const fl=body.split('\n')[0]||'';
+    if(body.includes('|')&&/^\s*\|?\s*:?-{2,}/m.test(body)){rows=[];for(const b of parseMd(body))if(b.t==='tb')rows.push(...b.rows)}
+    else{const cnt=ch=>fl.split(ch).length,fs=cnt('\t')>1?'\t':cnt(';')>cnt(',')?';':',';rows=csvRows(body,fs)}
+    const aoa=rows.map(r=>r.map(v=>{v=String(v).trim();if(/^=/.test(v))return{t:'n',f:v.slice(1)};if(/^-?\d+(\.\d+)?$/.test(v)&&v.length<16)return+v;return v}));
+    const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=Array.from({length:Math.max(0,...rows.map(r=>r.length))},(_,k)=>({wch:Math.min(50,Math.max(10,...rows.map(r=>String(r[k]||'').length+2)))}));if(ws['!ref'])ws['!autofilter']={ref:ws['!ref']};
+    let sn=(nm||'Sheet').replace(/[\\\/?*\[\]:]/g,' ').slice(0,31)||'Sheet',i=2;while(used.has(sn.toLowerCase()))sn=sn.slice(0,28)+' '+i++;used.add(sn.toLowerCase());XLSX.utils.book_append_sheet(wb,ws,sn)}
+  return new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
+async function mkPptx(c){const p=new PptxGenJS();p.layout='LAYOUT_WIDE';c=c.replace(/\r/g,'');
+  let secs=c.split(/\n[ \t]*-{3,}[ \t]*\n/);if(secs.length<2&&(c.match(/^#\s/gm)||[]).length>1)secs=c.split(/\n(?=#\s)/);
+  const A='4F6BED',F='Calibri';
+  for(const sec of secs){if(!sec.trim())continue;const bl=parseMd(sec).filter(b=>b.t!=='sp'),hi=bl.findIndex(b=>b.t==='h'),title=hi>=0?stripMd(bl[hi].x):'',rest=bl.filter((b,i)=>i!==hi),tbs=rest.filter(b=>b.t==='tb'),items=rest.filter(b=>b.t!=='tb');
+    if(hi>=0&&!rest.length){const sl=p.addSlide();sl.background={color:'111827'};sl.addShape(p.ShapeType.rect,{x:.9,y:4.2,w:1.6,h:.08,fill:{color:A},line:{color:A}});sl.addText(title,{x:.9,y:2.3,w:11.5,h:1.8,fontSize:40,bold:true,color:'FFFFFF',fontFace:F,valign:'bottom',fit:'shrink'});continue}
+    const chunks=[];for(let i=0;i<items.length;i+=6)chunks.push(items.slice(i,i+6));if(!chunks.length)chunks.push([]);
+    chunks.forEach((ch,ci)=>{const sl=p.addSlide();sl.background={color:'FFFFFF'};sl.addShape(p.ShapeType.rect,{x:0,y:0,w:.18,h:7.5,fill:{color:A},line:{color:A}});sl.slideNumber={x:12.3,y:7,w:.7,fontSize:11,color:'9CA3AF'};
+      sl.addText(title+(ci?' (lanjutan)':''),{x:.7,y:.4,w:12,h:.9,fontSize:30,bold:true,color:'111827',fontFace:F,fit:'shrink'});
+      const hasT=ci===0&&tbs.length;
+      if(ch.length)sl.addText(ch.map(b=>b.t==='h'?{text:stripMd(b.x),options:{bold:true,color:A,breakLine:true}}:{text:stripMd(b.x),options:{bullet:b.t==='li'&&!b.num,breakLine:true}}),{x:.7,y:1.5,w:12,h:hasT?2.6:5.4,fontSize:20,color:'374151',valign:'top',paraSpaceAfter:10,fontFace:F,fit:'shrink'});
+      if(hasT)tbs.forEach(t=>sl.addTable(t.rows.map((r,ri)=>r.map(cl=>({text:stripMd(cl),options:{bold:!ri,color:'111827',...(ri?{}:{fill:{color:'E5E7EB'}})}}))),{x:.7,y:ch.length?4.3:1.6,w:11.9,fontSize:14,fontFace:F,border:{type:'solid',pt:.5,color:'CCCCCC'}}))})}
   return p.write({outputType:'blob'})}
 async function copyText(c){try{await navigator.clipboard.writeText(c)}catch(e){const a=document.createElement('textarea');a.value=c;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(x){}a.remove()}}
 async function dl(i){const g=GF[i];if(g)return dlText(g[0],g[1])}
-async function dlText(name,c){const ext=name.split('.').pop().toLowerCase();let blob;
+async function dlText(name,c){name=name.replace(/\.(ppt|doc|xls)$/i,m=>({'.ppt':'.pptx','.doc':'.docx','.xls':'.xlsx'}[m.toLowerCase()]));const ext=name.split('.').pop().toLowerCase();let blob;
   try{if(ext==='docx')blob=await mkDocx(c);else if(ext==='pdf')blob=mkPdf(c);else if(ext==='xlsx')blob=mkXlsx(c);else if(ext==='pptx')blob=await mkPptx(c);else blob=new Blob([ext==='csv'?'\uFEFF'+c:c],{type:MIME[ext]||'text/plain;charset=utf-8'})}
   catch(e){toast(/JSZip|jspdf|XLSX|PptxGenJS/.test(e.message||'')?'Pembuat file belum termuat. Cek internet lalu muat ulang halaman.':'Gagal membuat file');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[\\/:*?"<>|]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('File diunduh: '+name)}
