@@ -127,6 +127,7 @@ label{display:block;font-weight:600;margin:14px 0 5px}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .btn{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:500}.btn:hover{background:var(--raise)}
 .btn.p{background:var(--btn);color:var(--btn-ink);border-color:transparent;font-weight:600}
+.chk{background:repeating-conic-gradient(#ccc 0 25%,#fff 0 50%) 50%/20px 20px;border-radius:10px;border:1px solid var(--line);padding:6px}.chk img,.pvw img{max-width:100%;max-height:340px;display:block;margin:0 auto}.pvw{border:1px solid var(--line);border-radius:10px;padding:6px;background:var(--bg)}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}@media(max-width:760px){.two{grid-template-columns:1fr}}
 .keyrow{display:flex;gap:8px}.keyrow input{flex:1}.keyrow .btn{white-space:nowrap}
 .mrow{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.mrow div{flex:1;min-width:0}.mrow b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mrow small{color:var(--mute)}.mrow small.lim{color:var(--err)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--btn);color:var(--btn-ink);padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}#toast.on{opacity:1}
@@ -151,6 +152,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
   <nav>
     <button id="menu" class="ibtn" aria-label="Buka daftar percakapan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <button class="tab on" data-v="chat">Chat</button>
+    <button class="tab" data-v="img">Alat Gambar</button>
     <button class="tab" data-v="dash">Dashboard</button>
     <button class="tab" data-v="set">Pengaturan</button>
     <span class="sp"></span><span id="saved"></span>
@@ -182,6 +184,16 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
       <input type="file" id="docf" accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.xml,.log,.js,.py" multiple hidden>
     </div></div>
   </section>
+
+  <section class="view" id="img"><div class="pad"><div class="wrap">
+    <h2>Alat Gambar</h2>
+    <div class="card"><b>Hapus latar belakang</b>
+      <div class="hint">Berjalan di browser kamu, gambar tidak dikirim ke server mana pun. Pertama kali memakai, model AI (puluhan MB) diunduh dulu, setelah itu lebih cepat.</div>
+      <div class="btns"><input type="file" id="bgf" accept="image/png,image/jpeg,image/webp"><button class="btn p" id="bgrun" disabled>Hapus latar</button></div>
+      <div class="hint" id="bgs" role="status" style="font-size:14px"></div>
+      <div class="two"><div class="pvw"><img id="bgo" alt="Gambar asli" hidden></div><div id="bgrw" hidden><div class="chk"><img id="bgr" alt="Hasil tanpa latar"></div><div class="btns"><button class="btn p" id="bgpng">Unduh PNG transparan</button><button class="btn" id="bgjpg">Unduh JPG latar putih</button></div></div></div>
+    </div>
+  </div></div></section>
 
   <section class="view" id="dash"><div class="pad"><div class="wrap">
     <h2>Ringkasan pemakaian</h2>
@@ -565,6 +577,17 @@ $('#q').addEventListener('input',renderList);
 $('#msgs').addEventListener('scroll',updDown);
 $('#down').onclick=()=>$('#msgs').scrollTo({top:$('#msgs').scrollHeight,behavior:'smooth'});
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#side').classList.add('open');$('#q').focus()}});
+let BGL,BGB=null;
+function bgSave(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+$('#bgf').onchange=e=>{const f=e.target.files[0];if(!f)return;const o=$('#bgo');o.src=URL.createObjectURL(f);o.hidden=false;$('#bgrw').hidden=true;BGB=null;$('#bgrun').disabled=false;$('#bgs').textContent=''};
+$('#bgrun').onclick=async()=>{const f=$('#bgf').files[0];if(!f)return;const st=$('#bgs'),b=$('#bgrun');b.disabled=true;st.style.color='';st.textContent='Memuat mesin AI...';
+  try{BGL=BGL||await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm');
+    BGB=await BGL.removeBackground(f,{progress:(k,c,t)=>{st.textContent=(/fetch/.test(k)?'Mengunduh model':'Memproses gambar')+': '+(t?Math.round(c/t*100):0)+'%'}});
+    $('#bgr').src=URL.createObjectURL(BGB);$('#bgrw').hidden=false;st.textContent='Selesai.'}
+  catch(e){st.style.color='var(--err)';st.textContent='Gagal: '+(e.message||e)+'. Cek koneksi internet, lalu coba lagi.'}
+  b.disabled=false};
+$('#bgpng').onclick=()=>BGB&&bgSave(BGB,'tanpa-latar.png');
+$('#bgjpg').onclick=()=>{if(!BGB)return;const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0);c.toBlob(b=>bgSave(b,'tanpa-latar.jpg'),'image/jpeg',0.92)};im.src=URL.createObjectURL(BGB)};
 boot();
 try{const d=localStorage.getItem(DK);if(d){$('#in').value=d;autosize()}}catch(e){}
 </script>
