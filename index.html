@@ -186,7 +186,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
     <h2>Ringkasan pemakaian</h2>
     <div class="grid" id="stats"></div>
     <div class="card"><b>Pemakaian per model</b><div id="byModel"></div></div>
-    <div class="card"><b>Penyimpanan lokal</b><div class="row"><div class="bar"><div id="stbar"></div></div><span id="sttxt"></span></div><div class="hint">Percakapan disimpan di browser ini. Unduh cadangan di Pengaturan sebelum membersihkan data browser atau ganti perangkat.</div></div>
+    <div class="card"><b>Penyimpanan lokal</b><div class="row"><div class="bar"><div id="stbar"></div></div><span id="sttxt"></span></div><div class="hint">Percakapan disimpan di browser ini (IndexedDB), terikat ke alamat situs ini. Unduh cadangan di Pengaturan sebelum membersihkan data browser atau ganti perangkat.</div></div>
     <div class="hint">Jumlah token diambil dari balasan API jika tersedia, jika tidak diperkirakan dari panjang teks.</div>
   </div></div></section>
 
@@ -242,12 +242,34 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
 <script>
 const $=s=>document.querySelector(s), K='dashboardAI.v1';
 const def={chats:[],cur:null,cfg:{base:'https://modelrouter.id/v1',key:'',model:'claude-opus-5',models:[],sys:'',temp:0.7},usage:{req:0,tin:0,tout:0,models:{}}};
-let S=load(), busy=false, ctrl=null, t0=0;
+let S=structuredClone(def), busy=false, ctrl=null, t0=0;
 function load(){try{const d=JSON.parse(localStorage.getItem(K));return d?{...def,...d,cfg:{...def.cfg,...d.cfg}}:structuredClone(def)}catch(e){return structuredClone(def)}}
-function save(){for(;;){try{localStorage.setItem(K,JSON.stringify(S));$('#saved').textContent='Tersimpan '+new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});return}catch(e){
+function saveLS(){for(;;){try{localStorage.setItem(K,JSON.stringify(S));return true}catch(e){
   const m=S.chats.slice().reverse().flatMap(c=>c.msgs).find(m=>(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text));
-  if(!m){toast('Gagal menyimpan: penyimpanan browser penuh atau diblokir');return}
+  if(!m){toast('Gagal menyimpan: penyimpanan browser penuh atau diblokir');return false}
   m.imgs=(m.imgs||[]).map(()=>null);(m.files||[]).forEach(f=>f.text='');toast('Penyimpanan penuh: lampiran terlama dihapus dari riwayat. Unduh cadangan untuk menyimpannya.')}}}
+/* penyimpanan: IndexedDB (kapasitas besar), cadangan ke localStorage jika IndexedDB tidak tersedia */
+let ready=false,idb=null,wT=0;
+const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open('goruku',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const idbGet=k=>new Promise((res,rej)=>{const q=idb.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});
+const idbPut=(k,v)=>new Promise((res,rej)=>{const t=idb.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)});
+function stamp(){$('#saved').textContent='Tersimpan '+new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}
+function save(){if(!ready)return;clearTimeout(wT);wT=setTimeout(flush,250)}
+async function flush(){clearTimeout(wT);if(!ready)return;try{if(idb)await idbPut(K,S);else if(!saveLS())return;stamp()}catch(e){toast('Gagal menyimpan ke browser (penyimpanan penuh atau diblokir). Unduh cadangan sekarang.')}}
+addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flush()});addEventListener('pagehide',flush);
+async function boot(){
+  try{idb=await idbOpen()}catch(e){idb=null}
+  let d=null;try{if(idb)d=await idbGet(K)}catch(e){}
+  if(d&&Array.isArray(d.chats))S={...def,...d,cfg:{...def.cfg,...d.cfg}};
+  else{let raw=null;try{raw=localStorage.getItem(K)}catch(e){}
+    if(raw){S=load();if(idb){try{await idbPut(K,S);const chk=await idbGet(K);if(chk&&chk.chats.length===S.chats.length)localStorage.removeItem(K)}catch(e){}}}}
+  ready=true;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  renderSet();if(!S.chats.length)newChat();else renderAll();stamp()}
+async function stor(){const sb=$('#stbar'),tx=$('#sttxt');let u=0,q=0;
+  try{const e=await navigator.storage.estimate();u=e.usage||0;q=e.quota||0}catch(x){}
+  if(!q){sb.style.width='0';tx.textContent='Kapasitas browser tidak bisa dibaca';return}
+  const pc=Math.min(100,u/q*100),f=b=>b>=1e9?(b/1e9).toFixed(1)+' GB':(b/1e6).toFixed(1)+' MB';
+  sb.style.width=Math.max(pc,1)+'%';sb.style.background=pc>80?'var(--err)':'';tx.textContent=f(u)+' dari ±'+f(q)+(pc>80?' (hampir penuh, unduh cadangan)':'')}
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),2600)}
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const LOGO=n=>'<svg width="'+n+'" height="'+n+'" viewBox="0 0 32 32" role="img" aria-label="Logo Goruku AI"><rect class="lr" width="32" height="32" rx="9"/><path class="lp" d="M21.8 11.2A7.5 7.5 0 1 0 23.5 16H16" fill="none" stroke-width="3" stroke-linecap="round"/></svg>';
@@ -298,7 +320,7 @@ function renderThread(force){GF=[];CODES=[];const c=chat(),t=$('#thread'),box=$(
   if(near||force)box.scrollTop=box.scrollHeight;updDown()}
 function updDown(){const b=$('#msgs');$('#down').hidden=b.scrollHeight-b.scrollTop-b.clientHeight<200}
 setInterval(()=>{if(!busy)return;const e=document.querySelector('.think .tt');if(e)e.textContent=Math.floor((Date.now()-t0)/1000)+' dtk'},1000);
-function renderDash(){let n=0;try{n=(localStorage.getItem(K)||'').length}catch(e){}const pc=Math.min(100,n/5e6*100),sb=$('#stbar');sb.style.width=pc+'%';sb.style.background=pc>80?'var(--err)':'';$('#sttxt').textContent=(n/1e6).toFixed(2)+' MB dari ±5 MB'+(pc>80?' (hampir penuh, unduh cadangan)':'');
+function renderDash(){stor();
   const u=S.usage,tot=u.tin+u.tout,msgs=S.chats.reduce((a,c)=>a+c.msgs.length,0);
   $('#stats').innerHTML=[['Percakapan',S.chats.length],['Pesan',msgs],['Permintaan API',u.req],['Token (total)',tot.toLocaleString('id-ID')]].map(([l,v])=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
   const ms=Object.entries(u.models),mx=Math.max(1,...ms.map(x=>x[1]));
@@ -487,7 +509,7 @@ $('#loadModels').onclick=$('#test').onclick=diagnose;
 $('#exp').onclick=()=>{const d={...S,cfg:{...S.cfg,key:''}};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));a.download='cadangan-goruku-ai-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Cadangan diunduh')};
 $('#imp').onclick=()=>$('#file').click();
 $('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.chats))throw 0;const key=S.cfg.key;S={...def,...d,cfg:{...def.cfg,...d.cfg,key}};save();renderSet();renderAll();toast('Cadangan dipulihkan')}catch(x){toast('File cadangan tidak valid')}e.target.value=''};
-$('#wipe').onclick=()=>{if(confirm('Hapus semua percakapan, statistik, dan pengaturan?')){localStorage.removeItem(K);S=structuredClone(def);renderSet();renderAll();toast('Semua data dihapus')}};
+$('#wipe').onclick=()=>{if(confirm('Hapus semua percakapan, statistik, dan pengaturan?')){try{localStorage.removeItem(K)}catch(e){}S=structuredClone(def);save();renderSet();renderAll();toast('Semua data dihapus')}};
 /* editor file */
 let ED=null,edT;
 const PV=n=>/\.(html?|svg)$/i.test(n);
@@ -514,7 +536,7 @@ $('#q').addEventListener('input',renderList);
 $('#msgs').addEventListener('scroll',updDown);
 $('#down').onclick=()=>$('#msgs').scrollTo({top:$('#msgs').scrollHeight,behavior:'smooth'});
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#side').classList.add('open');$('#q').focus()}});
-renderSet();if(!S.chats.length)newChat();else renderAll();
+boot();
 try{const d=localStorage.getItem(DK);if(d){$('#in').value=d;autosize()}}catch(e){}
 </script>
 </body>
