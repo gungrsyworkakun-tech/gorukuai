@@ -22,7 +22,10 @@ aside{width:280px;background:var(--panel);border-right:1px solid var(--line);dis
 .item{display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:10px;cursor:pointer;color:var(--mute)}
 .item:hover{background:var(--raise);color:var(--ink)}.item.on{background:var(--raise);color:var(--ink);font-weight:600}
 .item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.item button{border:0;background:none;color:var(--mute);padding:2px 6px;border-radius:6px}.item button:hover{color:var(--err)}
+.item button{border:0;background:none;color:var(--mute);padding:2px 6px;border-radius:6px;opacity:0}.item:hover button,.item.on button,.item button:focus-visible{opacity:1}
+@media(hover:none){.item button{opacity:1}}
+.srch{display:block;margin:0 14px 6px;width:calc(100% - 28px);padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);outline:0}.srch:focus{border-color:var(--mute)}
+#bar{position:relative}#down{position:absolute;top:-44px;right:24px;z-index:4;box-shadow:var(--shadow)}#down[hidden]{display:none}.item button:hover{color:var(--err)}
 .foot{padding:12px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--mute)}
 main{flex:1;display:flex;flex-direction:column;min-width:0}
 nav{display:flex;gap:4px;padding:10px 16px;border-bottom:1px solid var(--line);align-items:center;background:var(--bg)}
@@ -118,6 +121,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
 <aside id="side">
   <div class="brand"><span id="logoB"></span><span>Goruku<em>AI</em></span></div>
   <button class="new" id="newChat">Percakapan baru</button>
+  <input class="srch" id="q" type="search" placeholder="Cari percakapan (Ctrl+K)" aria-label="Cari percakapan" autocomplete="off">
   <div id="list"></div>
   <div class="foot">Data hanya ada di perangkat ini. Ekspor cadangan secara berkala di Pengaturan.</div>
 </aside>
@@ -137,9 +141,9 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
 
   <section class="view on" id="chat">
     <div id="msgs"><div class="wrap" id="thread"></div></div>
-    <div id="bar"><div class="wrap" id="comp">
+    <div id="bar"><button class="ibtn" id="down" hidden aria-label="Ke pesan terbaru"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button><div class="wrap" id="comp">
       <div id="prev"></div>
-      <textarea id="in" rows="1" placeholder="Tulis pesan atau seret file ke sini" aria-label="Pesan"></textarea>
+      <textarea id="in" rows="1" placeholder="Tulis pesan. Enter untuk kirim, Shift+Enter untuk baris baru" aria-label="Pesan"></textarea>
       <div class="tools">
         <div class="menuwrap">
           <button class="plus" id="attach" aria-label="Lampirkan" aria-haspopup="true" aria-expanded="false">+</button>
@@ -161,6 +165,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
     <h2>Ringkasan pemakaian</h2>
     <div class="grid" id="stats"></div>
     <div class="card"><b>Pemakaian per model</b><div id="byModel"></div></div>
+    <div class="card"><b>Penyimpanan lokal</b><div class="row"><div class="bar"><div id="stbar"></div></div><span id="sttxt"></span></div><div class="hint">Percakapan disimpan di browser ini. Unduh cadangan di Pengaturan sebelum membersihkan data browser atau ganti perangkat.</div></div>
     <div class="hint">Jumlah token diambil dari balasan API jika tersedia, jika tidak diperkirakan dari panjang teks.</div>
   </div></div></section>
 
@@ -254,17 +259,20 @@ function md(t){const CB=[];
   return blocks(esc(t)).replace(/\uE000C(\d+)\uE001/g,(_,i)=>CB[+i]).replace(/\uE000F(\d+)\uE001/g,(_,i)=>fcard(+i)).replace(/\uE000W([^\uE001]*)\uE001/g,(_,n)=>'<div class="fcard"><div><b>'+esc(n)+'</b><small>Sedang dibuat...</small></div></div>')}
 const chat=()=>S.chats.find(c=>c.id===S.cur);
 function newChat(){const c={id:Date.now().toString(36),title:'Percakapan baru',msgs:[]};S.chats.unshift(c);S.cur=c.id;save();renderAll();$('#in').focus()}
-function renderList(){$('#list').innerHTML=S.chats.map(c=>`<div class="item ${c.id===S.cur?'on':''}" data-id="${c.id}"><span>${esc(c.title)}</span><button data-del="${c.id}" aria-label="Hapus percakapan">✕</button></div>`).join('')||'<div class="hint" style="padding:10px">Belum ada percakapan.</div>'}
+function renderList(){const q=($('#q').value||'').trim().toLowerCase(),ls=q?S.chats.filter(c=>c.title.toLowerCase().includes(q)||c.msgs.some(m=>(m.content||'').toLowerCase().includes(q))):S.chats;
+  $('#list').innerHTML=ls.map(c=>`<div class="item ${c.id===S.cur?'on':''}" data-id="${c.id}"><span>${esc(c.title)}</span><button data-ren="${c.id}" aria-label="Ganti nama percakapan" title="Ganti nama">✎</button><button data-del="${c.id}" aria-label="Hapus percakapan" title="Hapus">✕</button></div>`).join('')||'<div class="hint" style="padding:10px">'+(q?'Tidak ada hasil.':'Belum ada percakapan.')+'</div>'}
 function thumbs(m,mi){let h='';if(m.imgs&&m.imgs.length)h+='<div class="thumbs">'+m.imgs.map((u,j)=>u&&u.startsWith('data:image/')&&!/["'<>]/.test(u)?`<img src="${u}" alt="Gambar terlampir, klik untuk memperbesar" data-mi="${mi}" data-ii="${j}" tabindex="0" role="button">`:'<span class="gone">(gambar tidak tersimpan)</span>').join('')+'</div>';if(m.files&&m.files.length)h+=m.files.map((f,j)=>`<div class="chip"><span data-mi="${mi}" data-fi="${j}" tabindex="0" role="button">${esc(f.name)}</span></div>`).join('');return h}
 function think(m){const lbl=m.content?'Menulis jawaban':(m.st||'Sedang berpikir');return '<div class="think" role="status"><span class="orb"></span><span>'+esc(lbl)+'</span><span class="dots"><i></i><i></i><i></i></span><span class="tt"></span></div>'}
 function renderThread(force){GF=[];CODES=[];const c=chat(),t=$('#thread'),box=$('#msgs'),near=box.scrollHeight-box.scrollTop-box.clientHeight<140;
   if(!c||!c.msgs.length){t.innerHTML='<div class="empty">'+LOGO(60)+'<h2>Mau mengerjakan apa hari ini?</h2><p>Tanya apa saja, lampirkan file, atau minta dibuatkan dokumen.</p><div class="sug"><button data-s="Buatkan laporan mingguan dalam file Word">Laporan Word</button><button data-s="Buatkan tabel anggaran bulanan dalam file Excel">Tabel Excel</button><button data-s="Buatkan presentasi 5 slide tentang ">Presentasi</button><button data-s="Buatkan halaman web sederhana untuk ">Halaman web</button></div></div>';return}
   const last=c.msgs.length-1;
   t.innerHTML=c.msgs.map((m,mi)=>{const u=m.role==='user',live=busy&&mi===last&&!u;
-    return `<div class="m ${u?'u':''} ${m.err?'err':''}">${u?'':'<div class="av">'+LOGO(28)+'</div>'}<div class="b">${thumbs(m,mi)}${md(m.content)}${live?think(m):''}${!u&&!live&&!m.err&&m.content?'<div class="mdl">'+(m.model?'<span>'+esc(m.model)+'</span>':'')+'<button data-cm="'+mi+'">Salin jawaban</button></div>':''}</div></div>`}).join('');
-  if(near||force)box.scrollTop=box.scrollHeight}
+    return `<div class="m ${u?'u':''} ${m.err?'err':''}">${u?'':'<div class="av">'+LOGO(28)+'</div>'}<div class="b">${thumbs(m,mi)}${md(m.content)}${live?think(m):''}${!u&&!live&&m.content?'<div class="mdl">'+(m.model&&!m.err?'<span>'+esc(m.model)+'</span>':'')+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':''}</div></div>`}).join('');
+  if(near||force)box.scrollTop=box.scrollHeight;updDown()}
+function updDown(){const b=$('#msgs');$('#down').hidden=b.scrollHeight-b.scrollTop-b.clientHeight<200}
 setInterval(()=>{if(!busy)return;const e=document.querySelector('.think .tt');if(e)e.textContent=Math.floor((Date.now()-t0)/1000)+' dtk'},1000);
-function renderDash(){const u=S.usage,tot=u.tin+u.tout,msgs=S.chats.reduce((a,c)=>a+c.msgs.length,0);
+function renderDash(){let n=0;try{n=(localStorage.getItem(K)||'').length}catch(e){}const pc=Math.min(100,n/5e6*100),sb=$('#stbar');sb.style.width=pc+'%';sb.style.background=pc>80?'var(--err)':'';$('#sttxt').textContent=(n/1e6).toFixed(2)+' MB dari ±5 MB'+(pc>80?' (hampir penuh, unduh cadangan)':'');
+  const u=S.usage,tot=u.tin+u.tout,msgs=S.chats.reduce((a,c)=>a+c.msgs.length,0);
   $('#stats').innerHTML=[['Percakapan',S.chats.length],['Pesan',msgs],['Permintaan API',u.req],['Token (total)',tot.toLocaleString('id-ID')]].map(([l,v])=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
   const ms=Object.entries(u.models),mx=Math.max(1,...ms.map(x=>x[1]));
   $('#byModel').innerHTML=ms.length?ms.map(([m,n])=>`<div class="row"><i title="${esc(m)}">${esc(m)}</i><div class="bar"><div style="width:${n/mx*100}%"></div></div><span>${n}</span></div>`).join(''):'<div class="hint">Belum ada permintaan.</div>'}
@@ -278,7 +286,10 @@ async function send(){
   fixModels();if(!S.cfg.key){toast('Isi API key di Pengaturan dulu');show('set');return}
   if(!chat())newChat();const c=chat();
   c.msgs.push({role:'user',content:txt,imgs:pend.length?pend.slice():undefined,files:pendF.length?pendF.slice():undefined});if(c.msgs.length===1)c.title=txt.slice(0,40)||pendF[0]?.name||'Gambar';pend=[];pendF=[];renderPrev();
-  const bot={role:'assistant',content:'',st:'Menghubungi model'};c.msgs.push(bot);$('#in').value='';autosize();setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
+  $('#in').value='';autosize();clearDraft();return gen(c)}
+function regen(){if(busy)return;const c=chat();if(!c)return;fixModels();if(!S.cfg.key){toast('Isi API key di Pengaturan dulu');show('set');return}
+  while(c.msgs.length&&c.msgs[c.msgs.length-1].role!=='user')c.msgs.pop();if(c.msgs.length)gen(c)}
+async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi model'};c.msgs.push(bot);setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
   const hist=c.msgs.slice(0,-1).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=(m.imgs||[]).filter(Boolean),t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...(t?[{type:'text',text:t}]:[]),...im.map(u=>({type:'image_url',image_url:{url:u}}))]:t}});
   hist.unshift({role:'system',content:FILE_PROMPT+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
   let usage=null,used=null;const tried=[];
@@ -304,7 +315,7 @@ async function send(){
     break}
   delete bot.st;
   if(used){const u=S.usage;u.req++;u.models[used]=(u.models[used]||0)+1;u.tin+=usage?.prompt_tokens??Math.ceil(hist.reduce((a,x)=>a+(typeof x.content==='string'?x.content.length:x.content.reduce((y,q)=>y+(q.text?q.text.length:3000),0)),0)/4);u.tout+=usage?.completion_tokens??Math.ceil(bot.content.length/4)}
-  ctrl=null;setBusy(false);save();renderAll();renderModelUI()}
+  ctrl=null;setBusy(false);save();renderAll();renderModelUI();if(matchMedia('(hover:hover)').matches)$('#in').focus()}
 function show(v){document.querySelectorAll('.view').forEach(e=>e.classList.toggle('on',e.id===v));document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.dataset.v===v));if(v==='dash')renderDash();$('#side').classList.remove('open')}
 function readSet(){S.cfg={...S.cfg,base:$('#base').value.trim()||def.cfg.base,key:$('#key').value.trim().replace(/^Bearer\s+/i,'').replace(/^["']|["']$/g,''),sys:$('#sys').value,temp:+$('#temp').value};save()}
 function autosize(){const e=$('#in');e.style.height='auto';e.style.height=Math.min(e.scrollHeight,180)+'px'}
@@ -384,6 +395,7 @@ document.addEventListener('click',e=>{const t=e.target,d=t.dataset||{};
   if(t.id==='scrim'){$('#side').classList.remove('open');return}
   const cb=t.closest('[data-cp]');
   if(cb){const i=+cb.dataset.cp,s=cb.querySelector('span');copyText(CODES[i]??'');if(s){s.textContent='Tersalin';setTimeout(()=>s.textContent='Salin',1500)}return}
+  if(d.rg!==undefined){regen();return}
   if(d.cm!==undefined){const m=chat()?.msgs[+d.cm];if(m){copyText(m.content);t.textContent='Tersalin';setTimeout(()=>{t.textContent='Salin jawaban'},1500)}return}
   if(d.dl!==undefined){dl(+d.dl);return}
   if(d.pv!==undefined){const g=GF[+d.pv];if(g)view(/\.html?$/i.test(g[0])?'html':'doc',g[1],g[0],'Pratinjau isi file buatan AI.');return}
@@ -431,7 +443,8 @@ $('#in').addEventListener('input',autosize);
 $('#newChat').onclick=()=>{newChat();show('chat');$('#side').classList.remove('open')};
 $('#menu').onclick=()=>$('#side').classList.toggle('open');
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>show(b.dataset.v));
-$('#list').onclick=e=>{const d=e.target.dataset.del;if(d){if(confirm('Hapus percakapan ini?')){S.chats=S.chats.filter(c=>c.id!==d);if(S.cur===d)S.cur=S.chats[0]?.id||null;save();renderAll()}return}
+$('#list').onclick=e=>{const rn=e.target.dataset.ren;if(rn){const c=S.chats.find(x=>x.id===rn),v=c&&prompt('Nama percakapan',c.title);if(v&&v.trim()){c.title=v.trim().slice(0,60);save();renderList()}return}
+  const d=e.target.dataset.del;if(d){if(confirm('Hapus percakapan ini?')){S.chats=S.chats.filter(c=>c.id!==d);if(S.cur===d)S.cur=S.chats[0]?.id||null;save();renderAll()}return}
   const it=e.target.closest('.item');if(it){S.cur=it.dataset.id;save();renderAll();show('chat')}};
 $('#temp').oninput=e=>$('#tv').textContent=e.target.value;
 $('#saveSet').onclick=()=>{readSet();toast('Pengaturan disimpan')};
@@ -440,7 +453,15 @@ $('#exp').onclick=()=>{const d={...S,cfg:{...S.cfg,key:''}};const a=document.cre
 $('#imp').onclick=()=>$('#file').click();
 $('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.chats))throw 0;const key=S.cfg.key;S={...def,...d,cfg:{...def.cfg,...d.cfg,key}};save();renderSet();renderAll();toast('Cadangan dipulihkan')}catch(x){toast('File cadangan tidak valid')}e.target.value=''};
 $('#wipe').onclick=()=>{if(confirm('Hapus semua percakapan, statistik, dan pengaturan?')){localStorage.removeItem(K);S=structuredClone(def);renderSet();renderAll();toast('Semua data dihapus')}};
+const DK='goruku.draft';
+function clearDraft(){try{localStorage.removeItem(DK)}catch(e){}}
+$('#in').addEventListener('input',()=>{try{const v=$('#in').value;v?localStorage.setItem(DK,v):localStorage.removeItem(DK)}catch(e){}});
+$('#q').addEventListener('input',renderList);
+$('#msgs').addEventListener('scroll',updDown);
+$('#down').onclick=()=>$('#msgs').scrollTo({top:$('#msgs').scrollHeight,behavior:'smooth'});
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#side').classList.add('open');$('#q').focus()}});
 renderSet();if(!S.chats.length)newChat();else renderAll();
+try{const d=localStorage.getItem(DK);if(d){$('#in').value=d;autosize()}}catch(e){}
 </script>
 </body>
 </html>
