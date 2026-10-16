@@ -94,7 +94,20 @@ nav .sp{flex:1}#saved{font-size:12px;color:var(--mute);margin-right:6px}
 .vhead button{border:1px solid var(--line);background:none;border-radius:8px;padding:4px 10px}
 #vb{overflow:auto;padding:16px}#vb img{max-width:100%;display:block;margin:0 auto;border-radius:8px}
 #vb pre{margin:0;white-space:pre-wrap;word-wrap:break-word;font:13.5px/1.65 var(--f)}
-.fcard{display:flex;align-items:center;gap:8px;margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.fcard div{flex:1;min-width:0}.fcard b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcard small{color:var(--mute)}
+.fcard{display:flex;flex-direction:column;gap:10px;margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.frow{display:flex;align-items:center;gap:8px}.frow>div{flex:1;min-width:0}.fcard b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcard small{color:var(--mute)}
+.fthumb{display:block;max-width:100%;max-height:300px;margin:0 auto;border-radius:8px;background:#fff;cursor:zoom-in}
+.cb.col pre{max-height:280px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 72%,transparent);mask-image:linear-gradient(#000 72%,transparent)}
+.cbx{display:block;width:100%;border:0;border-top:1px solid var(--line);background:var(--codeh);padding:8px;color:var(--mute);font:600 12.5px var(--f)}.cbx:hover{color:var(--ink)}
+.cb.live pre{max-height:150px;overflow:hidden;opacity:.75}.cb.live .cbh{gap:10px}.cb.live .cbh>span:last-child{margin-left:auto}
+#editor{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:25}#editor[hidden]{display:none}
+.ebox{width:96%;max-width:1200px;height:90vh;background:var(--panel);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden}
+.ebox .vhead{flex-wrap:wrap}
+.ebody{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr}.ebody.nopv{grid-template-columns:1fr}.ebody.nopv #epv{display:none}
+#esrc{resize:none;border:0;border-right:1px solid var(--line);background:var(--code);padding:14px;font:13px/1.6 var(--m);outline:0;white-space:pre;overflow:auto;tab-size:2;min-height:0}
+#epv{background:#fff;min-height:0}#epv iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+@media(max-width:760px){.ebody{grid-template-columns:1fr;grid-template-rows:1fr 1fr}#esrc{border-right:0;border-bottom:1px solid var(--line)}}
+@media(prefers-reduced-motion:reduce){.x{}}
 .pad{padding:24px 16px;overflow:auto;flex:1}.pad h2{font:700 24px var(--h);margin:0 0 16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:22px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}.stat b{display:block;font:700 28px var(--h)}.stat span{color:var(--mute);font-size:13px}
@@ -206,6 +219,10 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
   </div></div></section>
 </main>
 <div id="viewer" hidden role="dialog" aria-modal="true" aria-label="Pratinjau lampiran"><div class="vbox"><div class="vhead"><b id="vt"></b><button id="vx">Tutup</button></div><div class="hint" id="vn" style="padding:8px 16px 0"></div><div id="vb"></div></div></div>
+<div id="editor" hidden role="dialog" aria-modal="true" aria-label="Editor file"><div class="ebox">
+  <div class="vhead"><b id="et"></b><span class="hint" id="ed" style="margin:0"></span><button class="btn p" id="esv">Simpan</button><button class="btn" id="epng" hidden>Unduh PNG</button><button class="btn" id="edl">Unduh</button><button class="btn" id="ex">Tutup</button></div>
+  <div class="ebody"><textarea id="esrc" spellcheck="false" aria-label="Isi file"></textarea><div id="epv"></div></div>
+</div></div>
 <div id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -231,7 +248,7 @@ $('#logoB').innerHTML=LOGO(30);
 $('#themeBtn').onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('goruku.theme',t)}catch(e){}};
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{let s=null;try{s=localStorage.getItem('goruku.theme')}catch(x){}if(!s)document.documentElement.dataset.theme=e.matches?'dark':'light'});
 let GF=[],CODES=[];
-function fcard(i){const[n,c]=GF[i],kb=(new Blob([c]).size/1024).toFixed(1);return '<div class="fcard"><div><b>'+esc(n)+'</b><small>'+kb+' KB</small></div><button class="btn" data-pv="'+i+'">'+(/\.html?$/i.test(n)?'Pratinjau':'Lihat')+'</button><button class="btn p" data-dl="'+i+'">Unduh</button></div>'}
+function fcard(i){const[n,c]=GF[i],kb=(new Blob([c]).size/1024).toFixed(1),sv=/\.svg$/i.test(n);return '<div class="fcard">'+(sv?'<img class="fthumb" data-pv="'+i+'" alt="Pratinjau '+esc(n)+'" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)+'">':'')+'<div class="frow"><div><b>'+esc(n)+'</b><small>'+kb+' KB</small></div><button class="btn" data-pv="'+i+'">Buka &amp; edit</button><button class="btn p" data-dl="'+i+'">Unduh</button></div></div>'}
 function lnk(x){return x.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)"']+)\)|https?:\/\/(?:(?!&[lg]t;)[^\s<>()"'])+/g,(m,t,u)=>{let h=u||m,tail='';if(!u){const q=h.match(/[.,;:!?]+$/);if(q){tail=q[0];h=h.slice(0,-tail.length)}}return '<a href="'+h+'" target="_blank" rel="noopener noreferrer">'+(t||h)+'</a>'+tail})}
 function inl(x){return x.split(/(`[^`\n]+`)/).map((p,k)=>k%2?'<code>'+p.slice(1,-1)+'</code>':lnk(p).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*\n]*)\*/g,'$1<i>$2</i>')).join('')}
 const TB=/^\s*\|?\s*:?-{2,}[-:| ]*$/;
@@ -253,9 +270,11 @@ RN=new RegExp('(\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/|&lt;!--[\\s\\S]*?--&gt;)|("
 RH=new RegExp(RN.source.replace('(\\/\\/[^\\n]*|','(#[^\\n]*|'),'g');
 function hl(s,l){const re=/^(py|python|sh|bash|shell|yaml|yml|rb|ruby)$/i.test(l)?RH:RN;return s.replace(re,(m,c,st,n,k)=>'<span class="'+(c?'tc':st?'ts':n?'tn':'tk')+'">'+m+'</span>')}
 const CPI='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
-function code(l,c){CODES.push(c.replace(/\n$/,''));return '<div class="cb"><div class="cbh"><span>'+esc(l||'kode')+'</span><button data-cp="'+(CODES.length-1)+'">'+CPI+'<span>Salin</span></button></div><pre><code>'+hl(esc(c.replace(/\n$/,'')),l)+'</code></pre></div>'}
-function md(t){const CB=[];
-  t=t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(_,n,c)=>{GF.push([n.trim(),c.replace(/\n$/,'')]);return '\n\uE000F'+(GF.length-1)+'\uE001\n'}).replace(/```file:([^\n`]*)(?:\n[\s\S]*)?$/,(_,n)=>'\n\uE000W'+n.trim()+'\uE001').replace(/```([\w+#.-]*)\n?([\s\S]*?)```/g,(_,l,c)=>{CB.push(code(l,c));return '\n\uE000C'+(CB.length-1)+'\uE001\n'}).replace(/```([\w+#.-]*)\n?([\s\S]*)$/,(_,l,c)=>{CB.push(code(l,c));return '\n\uE000C'+(CB.length-1)+'\uE001\n'});
+const EXP=new Set();
+function code(l,c,key){c=c.replace(/\n$/,'');CODES.push(c);const n=c.split('\n').length,long=n>16,col=long&&!EXP.has(key);return '<div class="cb'+(col?' col':'')+'"><div class="cbh"><span>'+esc(l||'kode')+(long?' \u00b7 '+n+' baris':'')+'</span><button data-cp="'+(CODES.length-1)+'">'+CPI+'<span>Salin</span></button></div><pre><code>'+hl(esc(c),l)+'</code></pre>'+(long?'<button class="cbx" data-ex="'+key+'">'+(col?'Tampilkan semua':'Ciutkan')+'</button>':'')+'</div>'}
+function liveCode(l,c){const L=c.split('\n');return '<div class="cb live"><div class="cbh"><span>'+esc(l||'kode')+'</span><span class="dots"><i></i><i></i><i></i></span><span>Menulis kode, '+L.length+' baris</span></div><pre><code>'+esc(L.slice(-6).join('\n'))+'</code></pre></div>'}
+function md(t,mi,live){const CB=[];let fk=0,bn=0;
+  t=t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(_,n,c)=>{GF.push([n.trim(),c.replace(/\n$/,''),mi,fk++]);return '\n\uE000F'+(GF.length-1)+'\uE001\n'}).replace(/```file:([^\n`]*)(?:\n[\s\S]*)?$/,(_,n)=>'\n\uE000W'+n.trim()+'\uE001').replace(/```([\w+#.-]*)\n?([\s\S]*?)```/g,(_,l,c)=>{CB.push(code(l,c,mi+'-'+(bn++)));return '\n\uE000C'+(CB.length-1)+'\uE001\n'}).replace(/```([\w+#.-]*)\n?([\s\S]*)$/,(_,l,c)=>{CB.push(live?liveCode(l,c):code(l,c,mi+'-'+(bn++)));return '\n\uE000C'+(CB.length-1)+'\uE001\n'});
   return blocks(esc(t)).replace(/\uE000C(\d+)\uE001/g,(_,i)=>CB[+i]).replace(/\uE000F(\d+)\uE001/g,(_,i)=>fcard(+i)).replace(/\uE000W([^\uE001]*)\uE001/g,(_,n)=>'<div class="fcard"><div><b>'+esc(n)+'</b><small>Sedang dibuat...</small></div></div>')}
 const chat=()=>S.chats.find(c=>c.id===S.cur);
 function newChat(){const c={id:Date.now().toString(36),title:'Percakapan baru',msgs:[]};S.chats.unshift(c);S.cur=c.id;save();renderAll();$('#in').focus()}
@@ -267,7 +286,7 @@ function renderThread(force){GF=[];CODES=[];const c=chat(),t=$('#thread'),box=$(
   if(!c||!c.msgs.length){t.innerHTML='<div class="empty">'+LOGO(60)+'<h2>Mau mengerjakan apa hari ini?</h2><p>Tanya apa saja, lampirkan file, atau minta dibuatkan dokumen.</p><div class="sug"><button data-s="Buatkan laporan mingguan dalam file Word">Laporan Word</button><button data-s="Buatkan tabel anggaran bulanan dalam file Excel">Tabel Excel</button><button data-s="Buatkan presentasi 5 slide tentang ">Presentasi</button><button data-s="Buatkan halaman web sederhana untuk ">Halaman web</button></div></div>';return}
   const last=c.msgs.length-1;
   t.innerHTML=c.msgs.map((m,mi)=>{const u=m.role==='user',live=busy&&mi===last&&!u;
-    return `<div class="m ${u?'u':''} ${m.err?'err':''}">${u?'':'<div class="av">'+LOGO(28)+'</div>'}<div class="b">${thumbs(m,mi)}${md(m.content)}${live?think(m):''}${!u&&!live&&m.content?'<div class="mdl">'+(m.model&&!m.err?'<span>'+esc(m.model)+'</span>':'')+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':''}</div></div>`}).join('');
+    return `<div class="m ${u?'u':''} ${m.err?'err':''}">${u?'':'<div class="av">'+LOGO(28)+'</div>'}<div class="b">${thumbs(m,mi)}${md(m.content,mi,live)}${live?think(m):''}${!u&&!live&&m.content?'<div class="mdl">'+(m.model&&!m.err?'<span>'+esc(m.model)+'</span>':'')+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':''}</div></div>`}).join('');
   if(near||force)box.scrollTop=box.scrollHeight;updDown()}
 function updDown(){const b=$('#msgs');$('#down').hidden=b.scrollHeight-b.scrollTop-b.clientHeight<200}
 setInterval(()=>{if(!busy)return;const e=document.querySelector('.think .tt');if(e)e.textContent=Math.floor((Date.now()-t0)/1000)+' dtk'},1000);
@@ -330,7 +349,7 @@ async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='va
     const ids=((await r.json()).data||[]).map(m=>m.id);$('#models').innerHTML=ids.map(i=>`<option value="${esc(i)}">`).join('');
     d.style.color='var(--acc)';d.textContent='Koneksi berhasil. '+ids.length+' model ditemukan.'+(S.cfg.models.some(m=>!ids.includes(m.id))?' Tapi ada nama model di Daftar model yang tidak ada di server, periksa ejaannya.':'');
   }catch(e){bad('Browser tidak bisa menjangkau server ('+e.message+'). Kemungkinan: tidak ada internet, Base URL salah ketik, atau server memblokir akses langsung dari browser (CORS).')}}
-const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Ekstensi yang didukung: .docx dan .pdf (teks biasa; baris diawali # atau ## menjadi judul, baris diawali tanda minus menjadi poin); .xlsx (tulis isi sebagai CSV dengan baris pertama berisi judul kolom; rumus boleh diawali tanda sama dengan); .pptx (tiap slide dimulai baris # Judul slide lalu poin diawali tanda minus, antar slide dipisah baris berisi tiga tanda minus); .html (satu halaman lengkap dengan CSS dan JS di dalamnya, bisa dipratinjau pengguna); serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Setelah blok file, beri penjelasan singkat.';
+const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Ekstensi yang didukung: .docx dan .pdf (teks biasa; baris diawali # atau ## menjadi judul, baris diawali tanda minus menjadi poin); .xlsx (tulis isi sebagai CSV dengan baris pertama berisi judul kolom; rumus boleh diawali tanda sama dengan); .pptx (tiap slide dimulai baris # Judul slide lalu poin diawali tanda minus, antar slide dipisah baris berisi tiga tanda minus); .html (satu halaman lengkap dengan CSS dan JS di dalamnya, bisa dipratinjau pengguna); serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa di dalam jawaban. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas). Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama. Setelah blok file, beri penjelasan singkat.';
 const MIME={csv:'text/csv;charset=utf-8',json:'application/json',html:'text/html',md:'text/markdown'};
 function xe(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
 function line(l){let x=l.replace(/\*\*/g,''),lv=0;const h=x.match(/^(#{1,3})\s+(.*)/);if(h){x=h[2];lv=h[1].length}else if(/^\s*[-*]\s+/.test(x))x='\u2022  '+x.replace(/^\s*[-*]\s+/,'');return{x,lv}}
@@ -352,7 +371,8 @@ async function mkPptx(c){const p=new PptxGenJS();p.layout='LAYOUT_WIDE';
     if(body.length)sl.addText(body.map(b=>({text:b,options:{bullet:true,breakLine:true}})),{x:.6,y:1.6,w:12,h:5,fontSize:20,color:'DDDDDD',valign:'top'})}
   return p.write({outputType:'blob'})}
 async function copyText(c){try{await navigator.clipboard.writeText(c)}catch(e){const a=document.createElement('textarea');a.value=c;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(x){}a.remove()}}
-async function dl(i){const g=GF[i];if(!g)return;const[name,c]=g,ext=name.split('.').pop().toLowerCase();let blob;
+async function dl(i){const g=GF[i];if(g)return dlText(g[0],g[1])}
+async function dlText(name,c){const ext=name.split('.').pop().toLowerCase();let blob;
   try{if(ext==='docx')blob=await mkDocx(c);else if(ext==='pdf')blob=mkPdf(c);else if(ext==='xlsx')blob=mkXlsx(c);else if(ext==='pptx')blob=await mkPptx(c);else blob=new Blob([ext==='csv'?'\uFEFF'+c:c],{type:MIME[ext]||'text/plain;charset=utf-8'})}
   catch(e){toast(/JSZip|jspdf|XLSX|PptxGenJS/.test(e.message||'')?'Pembuat file belum termuat. Cek internet lalu muat ulang halaman.':'Gagal membuat file');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[\\/:*?"<>|]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('File diunduh: '+name)}
@@ -398,12 +418,14 @@ document.addEventListener('click',e=>{const t=e.target,d=t.dataset||{};
   if(d.rg!==undefined){regen();return}
   if(d.cm!==undefined){const m=chat()?.msgs[+d.cm];if(m){copyText(m.content);t.textContent='Tersalin';setTimeout(()=>{t.textContent='Salin jawaban'},1500)}return}
   if(d.dl!==undefined){dl(+d.dl);return}
-  if(d.pv!==undefined){const g=GF[+d.pv];if(g)view(/\.html?$/i.test(g[0])?'html':'doc',g[1],g[0],'Pratinjau isi file buatan AI.');return}
+  const ex=t.closest('[data-ex]');
+  if(ex){const k=ex.dataset.ex,box=ex.closest('.cb');if(EXP.has(k)){EXP.delete(k);box.classList.add('col');ex.textContent='Tampilkan semua'}else{EXP.add(k);box.classList.remove('col');ex.textContent='Ciutkan'}return}
+  if(d.pv!==undefined){openEditor(+d.pv);return}
   if(d.s!==undefined){$('#in').value=d.s;autosize();$('#in').focus();return}
   if(d.mi!==undefined){const m=chat()?.msgs[+d.mi];if(!m)return;if(d.ii!==undefined)view('img',m.imgs[+d.ii]);else if(d.fi!==undefined){const f=m.files[+d.fi];view('doc',f.text,f.name)}}
   else if(d.pi!==undefined)view('img',pend[+d.pi]);
   else if(d.pf!==undefined){const f=pendF[+d.pf];view('doc',f.text,f.name)}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePop();closeMp();$('#viewer').hidden=true}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#editor').hidden)closeEd();closePop();closeMp();$('#viewer').hidden=true}
   if((e.key==='Enter'||e.key===' ')&&e.target.getAttribute&&e.target.getAttribute('role')==='button'){e.preventDefault();e.target.click()}});
 $('#imgf').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 $('#prev').onclick=e=>{const i=e.target.dataset.rm,j=e.target.dataset.rf;if(i!==undefined)pend.splice(+i,1);if(j!==undefined)pendF.splice(+j,1);renderPrev()};
@@ -453,6 +475,21 @@ $('#exp').onclick=()=>{const d={...S,cfg:{...S.cfg,key:''}};const a=document.cre
 $('#imp').onclick=()=>$('#file').click();
 $('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.chats))throw 0;const key=S.cfg.key;S={...def,...d,cfg:{...def.cfg,...d.cfg,key}};save();renderSet();renderAll();toast('Cadangan dipulihkan')}catch(x){toast('File cadangan tidak valid')}e.target.value=''};
 $('#wipe').onclick=()=>{if(confirm('Hapus semua percakapan, statistik, dan pengaturan?')){localStorage.removeItem(K);S=structuredClone(def);renderSet();renderAll();toast('Semua data dihapus')}};
+/* editor file */
+let ED=null,edT;
+const PV=n=>/\.(html?|svg)$/i.test(n);
+function setBlock(t,k,body){let n=-1;return t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(m,nm)=>(++n===k)?'```file:'+nm+'\n'+body.replace(/```/g,'` ` `')+'\n```':m)}
+function openEditor(i){const g=GF[i];if(!g)return;ED={name:g[0],mi:g[2],k:g[3],src:g[1]};$('#et').textContent=g[0];$('#esrc').value=g[1];$('.ebody').classList.toggle('nopv',!PV(g[0]));$('#epng').hidden=!/\.svg$/i.test(g[0]);$('#ed').textContent='';$('#editor').hidden=false;edPrev();$('#esrc').focus()}
+function edPrev(){if(!ED||!PV(ED.name))return;const v=$('#esrc').value,sv=/\.svg$/i.test(ED.name),f=document.createElement('iframe');f.title='Pratinjau';f.setAttribute('sandbox',sv?'':'allow-scripts');f.srcdoc=sv?'<style>html,body{margin:0;height:100%}body{display:grid;place-items:center;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>'+v:v;$('#epv').replaceChildren(f)}
+function closeEd(){if(!ED)return;if($('#esrc').value!==ED.src&&!confirm('Perubahan belum disimpan. Tutup tanpa menyimpan?'))return;$('#editor').hidden=true;$('#epv').replaceChildren();ED=null}
+$('#esrc').addEventListener('input',()=>{clearTimeout(edT);edT=setTimeout(edPrev,300);$('#ed').textContent='Belum disimpan'});
+$('#esrc').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const a=e.target,p=a.selectionStart;a.setRangeText('  ',p,a.selectionEnd,'end');a.dispatchEvent(new Event('input'))}});
+$('#esv').onclick=()=>{if(!ED)return;const m=chat()?.msgs[ED.mi];if(!m){toast('Pesan asal file tidak ditemukan');return}const v=$('#esrc').value;m.content=setBlock(m.content,ED.k,v);ED.src=v;save();renderThread();$('#ed').textContent='Tersimpan';toast('Perubahan disimpan ke percakapan')};
+$('#edl').onclick=()=>{if(ED)dlText(ED.name,$('#esrc').value)};
+$('#ex').onclick=closeEd;
+$('#epng').onclick=()=>{if(!ED)return;const c=$('#esrc').value,nm=ED.name,vb=c.match(/viewBox\s*=\s*"\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/),im=new Image();
+  im.onload=()=>{let w=1200,h=900;if(vb&&+vb[1]>0){h=Math.round(1200*vb[2]/vb[1])}else if(im.naturalWidth){w=im.naturalWidth*2;h=im.naturalHeight*2}const cv=document.createElement('canvas');cv.width=w;cv.height=h;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm.replace(/\.svg$/i,'')+'.png';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('PNG diunduh')},'image/png')};
+  im.onerror=()=>toast('SVG tidak valid, tidak bisa dijadikan PNG');im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)};
 const DK='goruku.draft';
 function clearDraft(){try{localStorage.removeItem(DK)}catch(e){}}
 $('#in').addEventListener('input',()=>{try{const v=$('#in').value;v?localStorage.setItem(DK,v):localStorage.removeItem(DK)}catch(e){}});
