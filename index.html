@@ -194,7 +194,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
           <button class="plus" id="attach" aria-label="Lampirkan" aria-haspopup="true" aria-expanded="false">+</button>
           <div class="pop" id="pop" hidden>
             <button data-k="img">Gambar<small>JPG, PNG, tangkapan layar</small></button>
-            <button data-k="doc">Dokumen<small>PDF, Word (.docx), teks</small></button>
+            <button data-k="doc">Dokumen<small>PDF, Word, Excel, PowerPoint, teks</small></button>
             <button data-k="gen">Buat gambar<small>SVG, atau PNG asli jika model gambar diisi</small></button>
           </div>
         </div>
@@ -203,7 +203,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
         <button class="go" id="send">Kirim</button>
       </div>
       <input type="file" id="imgf" accept="image/*" multiple hidden>
-      <input type="file" id="docf" accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.xml,.log,.js,.py" multiple hidden>
+      <input type="file" id="docf" accept=".pdf,.docx,.xlsx,.xls,.xlsm,.pptx,.txt,.md,.csv,.json,.html,.xml,.log,.js,.py" multiple hidden>
     </div></div>
   </section>
 
@@ -247,8 +247,8 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
     <h2>Pengaturan</h2>
     <div class="card">
       <label for="base">Base URL API</label>
-      <input id="base" placeholder="https://modelrouter.id/v1">
-      <div class="hint">Dianggap kompatibel OpenAI (/chat/completions). Cek dokumentasi ModelRouter dan sesuaikan jika berbeda.</div>
+      <input id="base" list="bases" placeholder="https://modelrouter.id/v1"><datalist id="bases"><option value="https://api.anthropic.com/v1"><option value="https://api.deepseek.com/v1"><option value="https://api.openai.com/v1"><option value="https://modelrouter.id/v1"></datalist>
+      <div class="hint">Otomatis: alamat api.anthropic.com memakai format Claude asli, alamat lain (DeepSeek, OpenAI, ModelRouter) memakai format OpenAI /chat/completions. Tiap model di Daftar model bisa punya Base URL dan key sendiri.</div>
       <label for="key">API key</label>
       <div class="keyrow"><input id="key" type="password" autocomplete="off" placeholder="sk-..."><button class="btn" id="showKey" type="button">Lihat</button></div>
       <div class="hint">Disimpan di browser ini saja, tidak ikut ke GitHub. Jangan isi di komputer umum.</div>
@@ -257,6 +257,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
       <div class="hint">Aturan pembuatan file Word, Excel, PPT, dan membaca gambar sudah otomatis ikut terkirim, tidak perlu diisi di sini.</div>
       <label for="temp">Kreativitas (temperature): <span id="tv"></span></label>
       <input id="temp" type="range" min="0" max="2" step="0.1">
+      <label for="maxt">Batas token jawaban (0 = otomatis)</label><input id="maxt" type="number" min="0" max="128000"><div class="hint">Kalau file panjang terpotong, naikkan (Claude: 16000 atau lebih). DeepSeek maksimal 8192.</div>
       <label for="imgm">Model gambar (opsional)</label>
       <input id="imgm" list="models" placeholder="contoh: gpt-image-1">
       <div class="hint">Isi jika ModelRouter punya endpoint /images/generations. Kosong = Mode gambar membuat SVG lewat model chat.</div>
@@ -271,7 +272,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
     <div class="card"><b>Daftar model</b>
       <div class="hint">Tambahkan beberapa model. Model yang terkena limit otomatis dilewati dan pesan dikirim lewat model berikutnya di daftar.</div>
       <div id="mlist"></div><datalist id="models"></datalist>
-      <div class="btns"><input id="newm" list="models" placeholder="Nama model, contoh: claude-opus-5" style="flex:1;min-width:180px"><button class="btn p" id="addm">Tambah</button></div>
+      <div class="btns"><input id="newm" list="models" placeholder="Nama model, contoh: claude-sonnet-4-6" style="flex:1;min-width:180px"><input id="newb" list="bases" placeholder="Base URL (opsional)" style="flex:1;min-width:180px"><input id="newk" type="password" autocomplete="off" placeholder="API key (opsional)" style="flex:1;min-width:140px"><button class="btn p" id="addm">Tambah</button></div><div class="hint">Kosongkan Base URL dan key untuk memakai yang di atas. Claude langsung: model claude-sonnet-4-6, Base URL https://api.anthropic.com/v1. DeepSeek: model deepseek-chat, Base URL https://api.deepseek.com/v1.</div>
     </div>
     <div class="card"><b>Versi aplikasi</b>
       <div class="hint">Versi terpasang: <span id="ver"></span>. Jika tampilan di HP berbeda dengan di laptop, tekan tombol ini. Percakapan dan pengaturanmu tidak dihapus.</div>
@@ -300,6 +301,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundle.js"></script>
 <script>
 const $=s=>document.querySelector(s), K='dashboardAI.v1';
@@ -350,7 +352,7 @@ function fixFences(t){
   const fix=c=>/^\s*\/\/\s*JS\b/.test(c)?c:'// JS\n'+c;
   t=t.replace(/```(?:javascript|js|node)[ \t]*\n([\s\S]*?)```/g,(m,c)=>isGenCode(c)?'```file:'+nm+'.'+ext(c)+'\n'+fix(c).replace(/\n$/,'')+'\n```':m);
   return t.replace(/```(?:javascript|js|node)[ \t]*\n((?:(?!```)[\s\S])*)$/,(m,c)=>isGenCode(c)?'```file:'+nm+'.'+ext(c)+'\n'+c:m)}
-function fcard(i){const[n,c]=GF[i],kb=(new Blob([c]).size/1024).toFixed(1),x=n.split('.').pop().toLowerCase(),of=!!OFFX[x],sv=/\.svg$/i.test(n);return '<div class="fcard">'+(sv?'<img class="fthumb" data-pv="'+i+'" alt="Pratinjau '+esc(n)+'" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)+'">':'')+'<div class="frow"><div><b>'+esc(n)+'</b><small>'+(of?'File '+OFFX[x]+' siap diunduh':kb+' KB')+'</small></div><button class="btn" data-pv="'+i+'">'+(of?'Lihat kode':'Buka &amp; edit')+'</button><button class="btn p" data-dl="'+i+'">'+(of?'Unduh '+OFFX[x]:'Unduh')+'</button></div></div>'}
+function fcard(i){const[n,c]=GF[i],kb=(new Blob([c]).size/1024).toFixed(1),x=n.split('.').pop().toLowerCase(),of=!!OFFX[x],sv=/\.svg$/i.test(n);return '<div class="fcard">'+(sv?'<img class="fthumb" data-pv="'+i+'" alt="Pratinjau '+esc(n)+'" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)+'">':'')+'<div class="frow"><div><b>'+esc(n)+'</b><small>'+(of?'File '+OFFX[x]+' siap diunduh':kb+' KB')+'</small></div><button class="btn" data-pv="'+i+'">'+(/^\s*\/\/\s*JS\b/.test(c)||isGenCode(c)?'Lihat kode':'Buka &amp; edit')+'</button><button class="btn p" data-dl="'+i+'">'+(of?'Unduh '+OFFX[x]:'Unduh')+'</button></div></div>'}
 function lnk(x){return x.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)"']+)\)|https?:\/\/(?:(?!&[lg]t;)[^\s<>()"'])+/g,(m,t,u)=>{let h=u||m,tail='';if(!u){const q=h.match(/[.,;:!?]+$/);if(q){tail=q[0];h=h.slice(0,-tail.length)}}return '<a href="'+h+'" target="_blank" rel="noopener noreferrer">'+(t||h)+'</a>'+tail})}
 function inl(x){return x.split(/(`[^`\n]+`)/).map((p,k)=>k%2?'<code>'+p.slice(1,-1)+'</code>':lnk(p).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*\n]*)\*/g,'$1<i>$2</i>')).join('')}
 const TB=/^\s*\|?\s*:?-{2,}[-:| ]*$/;
@@ -408,18 +410,20 @@ function renderDash(){stor();
   $('#stats').innerHTML=[['Percakapan',S.chats.length],['Pesan',msgs],['Permintaan API',u.req],['Token (total)',tot.toLocaleString('id-ID')]].map(([l,v])=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
   const ms=Object.entries(u.models),mx=Math.max(1,...ms.map(x=>x[1]));
   $('#byModel').innerHTML=ms.length?ms.map(([m,n])=>`<div class="row"><i title="${esc(m)}">${esc(m)}</i><div class="bar"><div style="width:${n/mx*100}%"></div></div><span>${n}</span></div>`).join(''):'<div class="hint">Belum ada permintaan.</div>'}
-function renderSet(){const c=S.cfg;$('#base').value=c.base;$('#key').value=c.key;$('#sys').value=c.sys;$('#temp').value=c.temp;$('#imgm').value=c.imgModel||'';$('#tv').textContent=c.temp;renderModelUI()}
+function renderSet(){const c=S.cfg;$('#base').value=c.base;$('#key').value=c.key;$('#sys').value=c.sys;$('#temp').value=c.temp;$('#imgm').value=c.imgModel||'';$('#maxt').value=c.maxtok||0;$('#tv').textContent=c.temp;renderModelUI()}
 function renderAll(){renderList();renderThread(true);renderDash()}
-function api(path){return S.cfg.base.replace(/\/+$/,'')+path}
-function hdr(){return{'Content-Type':'application/json','Authorization':'Bearer '+S.cfg.key}}
+function prov(m){const b=((m&&m.base)||S.cfg.base||'').replace(/\/+$/,'');return{base:b,key:(m&&m.key)||S.cfg.key,anth:/anthropic\.com/i.test(b)}}
+const hasKey=()=>{const m=order()[0];return !!(m?prov(m).key:S.cfg.key)};
+function api(path,p){return (p||prov()).base+path}
+function hdr(p){p=p||prov();return p.anth?{'Content-Type':'application/json','x-api-key':p.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'}:{'Content-Type':'application/json','Authorization':'Bearer '+p.key}}
 function setBusy(b){busy=b;const s=$('#send');s.textContent=b?'Berhenti':'Kirim';s.classList.toggle('stop',b)}
 async function send(){
   if(busy)return;const txt=$('#in').value.trim();if(!txt&&!pend.length&&!pendF.length)return;
-  fixModels();if(!S.cfg.key){toast('Isi API key di Pengaturan dulu');show('set');return}
+  fixModels();if(!hasKey()){toast('Isi API key di Pengaturan dulu');show('set');return}
   if(!chat())newChat();const c=chat();
   c.msgs.push({role:'user',content:txt,imgs:pend.length?pend.slice():undefined,files:pendF.length?pendF.slice():undefined,gen:GEN||undefined});if(c.msgs.length===1)c.title=txt.slice(0,40)||pendF[0]?.name||'Gambar';pend=[];pendF=[];renderPrev();
   $('#in').value='';autosize();clearDraft();return (GEN&&S.cfg.imgModel)?genImage(c,txt):gen(c)}
-function regen(){if(busy)return;const c=chat();if(!c)return;fixModels();if(!S.cfg.key){toast('Isi API key di Pengaturan dulu');show('set');return}
+function regen(){if(busy)return;const c=chat();if(!c)return;fixModels();if(!hasKey()){toast('Isi API key di Pengaturan dulu');show('set');return}
   while(c.msgs.length&&c.msgs[c.msgs.length-1].role!=='user')c.msgs.pop();if(c.msgs.length){const lu=c.msgs[c.msgs.length-1];if(lu.gen&&S.cfg.imgModel)genImage(c,lu.content);else gen(c)}}
 async function genImage(c,prompt){
   const bot={role:'assistant',content:'',st:'Membuat gambar'};c.msgs.push(bot);setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
@@ -437,18 +441,21 @@ async function genImage(c,prompt){
 const hasImgs=h=>h.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==='image_url'));
 const toAnthropicImgs=h=>h.map(m=>Array.isArray(m.content)?{...m,content:m.content.map(p=>p.type==='image_url'?{type:'image',source:{type:'base64',media_type:(p.image_url.url.match(/^data:([^;]+)/)||[])[1]||'image/jpeg',data:p.image_url.url.split(',')[1]}}:p)}:m);
 function trimImgs(h,keep){let n=0;for(let i=h.length-1;i>=0;i--){const m=h[i];if(!Array.isArray(m.content)||!m.content.some(p=>p.type==='image_url'))continue;n++;if(n>keep)m.content=m.content.filter(p=>p.type!=='image_url').concat([{type:'text',text:'[gambar sebelumnya tidak dikirim ulang]'}])}return h}
-const chatReq=(model,messages,stream,signal)=>fetch(api('/chat/completions'),{method:'POST',headers:hdr(),signal,body:JSON.stringify({model,messages,temperature:+S.cfg.temp,...(stream?{stream:true,stream_options:{include_usage:true}}:{})})});
+const chatReq=(m,messages,stream,signal)=>{const p=prov(m),mt=+S.cfg.maxtok||0;
+  if(p.anth){const sys=messages.filter(x=>x.role==='system').map(x=>x.content).join('\n\n'),ms=toAnthropicImgs(messages.filter(x=>x.role!=='system'));
+    return fetch(p.base+'/messages',{method:'POST',headers:hdr(p),signal,body:JSON.stringify({model:m.id,max_tokens:mt||16000,system:sys,messages:ms,temperature:Math.min(1,+S.cfg.temp),...(stream?{stream:true}:{})})})}
+  return fetch(p.base+'/chat/completions',{method:'POST',headers:hdr(p),signal,body:JSON.stringify({model:m.id,messages,temperature:+S.cfg.temp,...(mt?{max_tokens:mt}:{}),...(stream?{stream:true,stream_options:{include_usage:true}}:{})})})};
 async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi model'};c.msgs.push(bot);setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
   const hist=c.msgs.slice(0,-1).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=m.role==='user'?(m.imgs||[]).filter(Boolean):[],t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...im.map(u=>({type:'image_url',image_url:{url:u}})),{type:'text',text:t||'Tolong baca dan jelaskan gambar ini.'}]:t}}).filter(m=>m.content&&m.content.length);
   while(hist.length&&hist[0].role!=='user')hist.shift();trimImgs(hist,3);const lu=[...c.msgs].reverse().find(m=>m.role==='user');hist.unshift({role:'system',content:FILE_PROMPT+VISION_NOTE+(lu&&lu.gen?'\n\n'+IMG_PROMPT:'')+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
-  let usage=null,used=null;const tried=[];
+  let usage=null,used=null,trunc=false;const tried=[];
   for(;;){const m=order().find(x=>!tried.includes(x.id));
     if(!m){if(!bot.content){bot.content='**Semua model sedang limit.**\n\n'+S.cfg.models.map(x=>'- '+x.id+': '+untilTxt(x)).join('\n')+'\n\nTambahkan model lain di Pengaturan, atau tekan Ulangi jawaban setelah waktu di atas.';bot.err=true}break}
     bot.st=tried.length?'Beralih ke '+m.id:'Sedang berpikir';renderThread();
     tried.push(m.id);
     try{
-      let r=await chatReq(m.id,hist,true,ctrl.signal);
-      if(!r.ok&&[400,415,422].includes(r.status)&&hasImgs(hist))r=await chatReq(m.id,toAnthropicImgs(hist),true,ctrl.signal);
+      let r=await chatReq(m,hist,true,ctrl.signal);
+      if(!r.ok&&[400,415,422].includes(r.status)&&hasImgs(hist))r=await chatReq(m,toAnthropicImgs(hist),true,ctrl.signal);
       if(!r.ok){const body=await r.text();let msg=body;try{msg=JSON.parse(body).error?.message||body}catch(e){}
         const li=limitInfo(r.status,body,+r.headers.get('retry-after')||0);
         if(li){m.until=li;(bot.notes=bot.notes||[]).push(m.id+' terkena limit ('+String(msg).replace(/\s+/g,' ').slice(0,90)+'). '+untilTxt(m)+'.');save();renderModelUI();toast(m.id+' terkena limit, mencoba model lain...');continue}
@@ -457,9 +464,9 @@ async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi mod
       const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
       for(;;){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop();
         for(const l of ls){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(!d||d==='[DONE]')continue;
-          try{const j=JSON.parse(d);if(j.usage)usage=j.usage;const p=j.choices?.[0]?.delta?.content;if(p){bot.content+=p;if(!bot.ttft)bot.ttft=Date.now()-t0;stream()}}catch(e){}}}
+          try{const j=JSON.parse(d);if(j.usage)usage={...usage,...j.usage};if(j.message&&j.message.usage)usage={...usage,prompt_tokens:j.message.usage.input_tokens};if(j.type==='message_delta'&&j.usage)usage={...usage,completion_tokens:j.usage.output_tokens};if(j.type==='error')(bot.notes=bot.notes||[]).push('Server: '+(j.error&&j.error.message||'error'));if((j.choices&&j.choices[0]&&j.choices[0].finish_reason==='length')||(j.delta&&j.delta.stop_reason==='max_tokens'))trunc=true;const p=(j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content)||(j.type==='content_block_delta'&&j.delta&&j.delta.text)||'';if(p){bot.content+=p;if(!bot.ttft)bot.ttft=Date.now()-t0;stream()}}catch(e){}}}
       if(!bot.content)bot.content='(Balasan kosong)';
-      bot.content=fixFences(bot.content);
+      bot.content=fixFences(bot.content);if(trunc||((bot.content.match(/```/g)||[]).length%2))(bot.notes=bot.notes||[]).push('Jawaban terpotong karena kena batas panjang. Naikkan Batas token jawaban di Pengaturan, atau ketik: lanjutkan.');
     }catch(e){
       if(e.name==='AbortError'){used=used||m.id;bot.model=bot.model||m.id;if(!bot.content)bot.content='(Dihentikan)'}
       else{bot.content='Gagal menghubungi API. '+(e.message==='Failed to fetch'?'Periksa Base URL, koneksi internet, atau kemungkinan pemblokiran CORS oleh server.':e.message);bot.err=true}}
@@ -468,12 +475,12 @@ async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi mod
   if(used){const u=S.usage;u.req++;u.models[used]=(u.models[used]||0)+1;u.tin+=usage?.prompt_tokens??Math.ceil(hist.reduce((a,x)=>a+(typeof x.content==='string'?x.content.length:x.content.reduce((y,q)=>y+(q.text?q.text.length:3000),0)),0)/4);u.tout+=usage?.completion_tokens??Math.ceil(bot.content.length/4)}
   ctrl=null;setBusy(false);save();renderAll();renderModelUI();if(matchMedia('(hover:hover)').matches)$('#in').focus()}
 function show(v){document.querySelectorAll('.view').forEach(e=>e.classList.toggle('on',e.id===v));document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.dataset.v===v));if(v==='dash')renderDash();$('#side').classList.remove('open')}
-function readSet(){S.cfg={...S.cfg,base:$('#base').value.trim()||def.cfg.base,key:$('#key').value.trim().replace(/^Bearer\s+/i,'').replace(/^["']|["']$/g,''),sys:$('#sys').value,temp:+$('#temp').value,ctx:0,maxtok:0,imgModel:$('#imgm').value.trim()};save()}
+function readSet(){S.cfg={...S.cfg,base:$('#base').value.trim()||def.cfg.base,key:$('#key').value.trim().replace(/^Bearer\s+/i,'').replace(/^["']|["']$/g,''),sys:$('#sys').value,temp:+$('#temp').value,ctx:0,maxtok:Math.max(0,+$('#maxt').value||0),imgModel:$('#imgm').value.trim()};save()}
 function autosize(){const e=$('#in');e.style.height='auto';e.style.height=Math.min(e.scrollHeight,180)+'px'}
 async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='var(--err)';d.textContent=t};d.style.color='';d.textContent='Menguji koneksi...';
-  if(!S.cfg.key)return bad('API key masih kosong.');
-  if(S.cfg.key.startsWith('$'))return bad('Kolom API key berisi nama variabel. Tempel key aslinya dari dashboard ModelRouter.');
-  try{const r=await fetch(api('/models'),{headers:hdr()});
+  fixModels();const P=prov(order()[0]);if(!P.key)return bad('API key masih kosong.');
+  if(P.key.startsWith('$'))return bad('Kolom API key berisi nama variabel. Tempel key aslinya dari dashboard ModelRouter.');
+  try{const r=await fetch(api('/models',P),{headers:hdr(P)});
     if(r.status===401||r.status===403)return bad('Ditolak (status '+r.status+'): API key salah, sudah dinonaktifkan, atau belum punya akses.');
     if(r.status===404)return bad('Status 404: alamat tidak ditemukan. Base URL harus persis https://modelrouter.id/v1');
     if(r.status===429)return bad('Status 429: terlalu banyak permintaan. Tunggu semenit lalu coba lagi.');
@@ -483,7 +490,7 @@ async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='va
   }catch(e){bad('Browser tidak bisa menjangkau server ('+e.message+'). Kemungkinan: tidak ada internet, Base URL salah ketik, atau server memblokir akses langsung dari browser (CORS).')}}
 $('#testImg').onclick=async()=>{
   readSet();const d=$('#diag');d.style.color='';
-  if(!S.cfg.key){d.style.color='var(--err)';d.textContent='API key masih kosong.';return}
+  fixModels();if(!hasKey()){d.style.color='var(--err)';d.textContent='API key masih kosong.';return}
   fixModels();const m=order()[0];
   if(!m){d.style.color='var(--err)';d.textContent='Semua model sedang limit.';return}
   d.textContent='Menguji baca gambar dengan '+m.id+'...';
@@ -491,40 +498,49 @@ $('#testImg').onclick=async()=>{
   const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,360,120);x.fillStyle='#000';x.font='bold 48px sans-serif';x.fillText('KODE 4827',20,75);
   let msgs=[{role:'user',content:[{type:'image_url',image_url:{url:c.toDataURL('image/jpeg',0.9)}},{type:'text',text:'Tulis persis teks yang tertulis di gambar ini.'}]}],fmt='image_url';
   try{
-    let r=await chatReq(m.id,msgs,false);
-    if(!r.ok&&[400,415,422].includes(r.status)){msgs=toAnthropicImgs(msgs);fmt='image (gaya Anthropic)';r=await chatReq(m.id,msgs,false)}
+    let r=await chatReq(m,msgs,false);
+    if(!r.ok&&[400,415,422].includes(r.status)){msgs=toAnthropicImgs(msgs);fmt='image (gaya Anthropic)';r=await chatReq(m,msgs,false)}
     if(!r.ok)throw new Error('Status '+r.status+': '+(await r.text()).slice(0,200));
-    const t=(await r.json()).choices?.[0]?.message?.content||'';
+    const jj=await r.json(),t=jj.choices?.[0]?.message?.content||(jj.content||[]).map(x=>x.text||'').join('');
     if(/4827/.test(t)){d.style.color='var(--acc)';d.textContent='Berhasil: '+m.id+' bisa membaca gambar (format '+fmt+'). Jawaban: '+t.slice(0,80)}
     else{d.style.color='var(--err)';d.textContent='Model '+m.id+' tidak membaca gambar. Jawabannya: "'+t.slice(0,150)+'". Tambahkan dan pilih model lain yang mendukung gambar di Daftar model.'}
   }catch(e){d.style.color='var(--err)';d.textContent='Gagal: '+(e.message==='Failed to fetch'?'periksa Base URL, internet, atau CORS.':e.message)}};
 const VISION_NOTE=' Pengguna bisa melampirkan gambar dan tangkapan layar. Kamu BISA melihat dan membaca gambar yang dilampirkan di pesan, jadi jangan pernah bilang tidak bisa melihat gambar. Jelaskan atau salin isi gambar sesuai permintaan, termasuk teks di dalamnya.';
-const FILE_PROMPT='Kamu bisa membuat file untuk pengguna, dan aplikasi ini otomatis mengubah jawabanmu menjadi tombol Unduh. Jika pengguna meminta file (dokumen, laporan, surat, tabel, presentasi, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. ATURAN PALING PENTING untuk Word (.docx), Excel (.xlsx), dan PowerPoint (.pptx): tulis sebagai kode JavaScript pembuat file di dalam blok file:nama.docx (atau .xlsx / .pptx) dengan baris pertama persis // JS. JANGAN PERNAH menaruh kode itu di blok javascript biasa, JANGAN PERNAH menyuruh pengguna menyalin kode, menjalankan kode, membuka editor, memberi nama file .js, atau menginstal apa pun, dan JANGAN menjelaskan cara kerja kodenya. Pengguna cukup menekan tombol Unduh. Kode itu adalah isi fungsi async yang memakai library global PptxGenJS (v3), docx (v8: docx.Document, docx.Packer, docx.Paragraph, docx.TextRun, docx.Table, docx.TableRow, docx.TableCell, docx.HeadingLevel, docx.AlignmentType, docx.WidthType, docx.ShadingType, docx.Footer, docx.PageNumber), serta ExcelJS (v4), dan harus diakhiri return Blob. Contoh: return await docx.Packer.toBlob(doc); return await pres.write({outputType:"blob"}); return new Blob([await wb.xlsx.writeBuffer()]). Jangan memakai import atau require, dan jangan memakai fitur yang rumit seperti TableOfContents. Jaga kode ringkas dan pasti jalan. Rancang seperti desainer profesional: palet warna konsisten, pilihan font, judul, tabel berformat, grafik (addChart di pptx), sel berwarna, rumus, lebar kolom, freeze pane, header dan nomor halaman, sampul dan struktur yang jelas. Tidak ada akses internet, jadi jangan memakai gambar dari URL. Isi harus lengkap, benar, dan memakai bahasa pengguna. Setelah blok file, tulis hanya 2 sampai 3 kalimat ringkasan isi file, tanpa petunjuk teknis. File .pdf ditulis dengan markdown (# judul, ## subjudul, - poin, **tebal**, tabel dengan tanda |); .html satu halaman lengkap dengan CSS dan JS di dalamnya; serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas); pengguna bisa mengunduhnya sebagai PNG atau JPG dari editor. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama.';
+const FILE_PROMPT=[
+"Kamu bisa membuat file untuk pengguna, dan aplikasi ini otomatis mengubah jawabanmu menjadi file asli dengan tombol Unduh. Jika pengguna meminta file apa pun, tulis isi file secara lengkap di dalam blok: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup.",
+"DILARANG KERAS untuk Word, Excel, PowerPoint, dan PDF: jangan menjawab dengan JSON mentah, kode pembuat file, atau petunjuk menyalin dan menjalankan kode. Tulis isinya sebagai teks Markdown biasa, aplikasi yang membuat filenya.",
+"Format isi: (1) .docx dan .pdf: Markdown, yaitu # judul, ## subjudul, ### bagian, paragraf pendek, - poin, 1. daftar nomor, **tebal**, dan tabel dengan tanda | plus baris pemisah |---|---|. Mulai dengan satu judul # dan susun rapi seperti dokumen profesional. (2) .xlsx: setiap sheet diawali baris ### Nama Sheet lalu tabel Markdown, baris pertama adalah header. Tulis angka polos tanpa titik ribuan atau simbol mata uang (15000, bukan Rp 15.000), rumus diawali tanda = dengan alamat sel Excel seperti =SUM(B2:B10), baris data mulai dari baris 2. (3) .pptx: slide dipisah baris yang hanya berisi ---. Tiap slide berisi satu baris # Judul lalu 3 sampai 6 poin singkat berawalan -, slide sampul hanya berisi # Judul. Tabel Markdown boleh. (4) .csv .txt .md .json .py .js dan sejenisnya: isi apa adanya. (5) .html: satu halaman lengkap dengan CSS dan JS di dalamnya. (6) Gambar, logo, ilustrasi, diagram: file .svg lengkap dengan atribut viewBox.",
+"Isi harus lengkap, benar, memakai bahasa pengguna, tanpa menyingkat dengan titik-titik. Satu blok untuk satu file, dan di dalam isi file jangan memakai tiga backtick. Aplikasi, halaman web, dan kode lebih dari sekitar 25 baris harus ditulis sebagai file. Jangan membuat file untuk jawaban biasa. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu lengkap dengan nama yang sama. Jika pengguna melampirkan Excel, Word, PowerPoint, atau PDF, isinya sudah terbaca sebagai teks di pesan. Setelah blok file, tulis hanya 1 sampai 3 kalimat ringkasan, tanpa petunjuk teknis."
+].join(' ');
 const MIME={csv:'text/csv;charset=utf-8',json:'application/json',html:'text/html',md:'text/markdown'};
 function xe(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
 function line(l){let x=l.replace(/\*\*/g,''),lv=0;const h=x.match(/^(#{1,3})\s+(.*)/);if(h){x=h[2];lv=h[1].length}else if(/^\s*[-*]\s+/.test(x))x='\u2022  '+x.replace(/^\s*[-*]\s+/,'');return{x,lv}}
 const stripMd=x=>x.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/`([^`]+)`/g,'$1');
 function parseMd(text){const L=text.replace(/\r/g,'').split('\n'),o=[];let i=0,m;
   while(i<L.length){const l=L[i];
-    if(!l.trim()){o.push({t:'sp'});i++}
+    if(!l.trim()||/^\s*(-{3,}|\*{3,})\s*$/.test(l)){o.push({t:'sp'});i++}
     else if(l.includes('|')&&TB.test(L[i+1]||'')){const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim()),rows=[cells(l)];i+=2;while(i<L.length&&L[i].trim()&&L[i].includes('|'))rows.push(cells(L[i++]));o.push({t:'tb',rows})}
     else if(m=l.match(/^(#{1,4})\s+(.*)/)){o.push({t:'h',lv:m[1].length,x:m[2]});i++}
     else if(m=l.match(/^\s*[-*]\s+(.*)/)){o.push({t:'li',x:m[1]});i++}
     else if(m=l.match(/^\s*(\d+)[.)]\s+(.*)/)){o.push({t:'li',x:m[1]+'. '+m[2],num:1});i++}
     else{o.push({t:'p',x:l.trim()});i++}}
   return o}
-function runs(x,b,sz){return x.split(/(\*\*[^*]+\*\*)/).filter(Boolean).map(p=>'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>'+(b||/^\*\*/.test(p)?'<w:b/>':'')+'<w:sz w:val="'+sz+'"/></w:rPr><w:t xml:space="preserve">'+xe(p.replace(/^\*\*|\*\*$/g,''))+'</w:t></w:r>').join('')}
+function runs(x,b,sz,col){return x.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`)/).filter(Boolean).map(p=>{let bb=b,it=false,mono=false;if(/^\*\*/.test(p)){bb=true;p=p.slice(2,-2)}else if(/^\*[^*]/.test(p)&&p.endsWith('*')){it=true;p=p.slice(1,-1)}else if(/^`/.test(p)){mono=true;p=p.slice(1,-1)}
+  const f=mono?'Consolas':'Calibri';return '<w:r><w:rPr><w:rFonts w:ascii="'+f+'" w:hAnsi="'+f+'"/>'+(bb?'<w:b/>':'')+(it?'<w:i/>':'')+(col?'<w:color w:val="'+col+'"/>':'')+'<w:sz w:val="'+sz+'"/></w:rPr><w:t xml:space="preserve">'+xe(p)+'</w:t></w:r>'}).join('')}
 async function mkDocx(text){const HS=[40,32,28,24],bd=['top','left','bottom','right','insideH','insideV'].map(k=>'<w:'+k+' w:val="single" w:sz="4" w:color="BBBBBB"/>').join('');
+  const W='xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"',R='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
   const ps=parseMd(text).map(b=>{
     if(b.t==='sp')return '';
-    if(b.t==='h')return '<w:p><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/></w:pPr>'+runs(b.x,true,HS[b.lv-1])+'</w:p>';
+    if(b.t==='h'){const L=Math.min(b.lv,4)-1;return '<w:p><w:pPr><w:keepNext/>'+(b.lv===1?'<w:pBdr><w:bottom w:val="single" w:sz="8" w:space="3" w:color="4F6BED"/></w:pBdr>':'')+'<w:spacing w:before="'+(b.lv===1?360:240)+'" w:after="120"/><w:outlineLvl w:val="'+L+'"/></w:pPr>'+runs(b.x,true,HS[L],'1F3864')+'</w:p>'}
     if(b.t==='li')return '<w:p><w:pPr><w:spacing w:after="60"/><w:ind w:left="540" w:hanging="270"/></w:pPr>'+runs((b.num?'':'\u2022\u00a0\u00a0')+b.x,false,22)+'</w:p>';
-    if(b.t==='tb'){const n=Math.max(...b.rows.map(r=>r.length));return '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>'+bd+'</w:tblBorders><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>'+b.rows.map((r,ri)=>'<w:tr>'+Array.from({length:n},(_,k)=>'<w:tc><w:tcPr>'+(ri?'':'<w:shd w:val="clear" w:color="auto" w:fill="EEEEEE"/>')+'</w:tcPr><w:p><w:pPr><w:spacing w:before="40" w:after="40"/></w:pPr>'+runs(r[k]||'',!ri,20)+'</w:p></w:tc>').join('')+'</w:tr>').join('')+'</w:tbl><w:p/>'}
-    return '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>'+runs(b.x,false,22)+'</w:p>'}).join('');
+    if(b.t==='tb'){const n=Math.max(...b.rows.map(r=>r.length));return '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>'+bd+'</w:tblBorders><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>'+b.rows.map((r,ri)=>'<w:tr>'+Array.from({length:n},(_,k)=>'<w:tc><w:tcPr>'+(ri?'':'<w:shd w:val="clear" w:color="auto" w:fill="D9E2F3"/>')+'</w:tcPr><w:p><w:pPr><w:spacing w:before="40" w:after="40"/></w:pPr>'+runs(r[k]||'',!ri,20,ri?'':'1F3864')+'</w:p></w:tc>').join('')+'</w:tr>').join('')+'</w:tbl><w:p/>'}
+    return '<w:p><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr>'+runs(b.x,false,22)+'</w:p>'}).join('');
   const z=new JSZip(),H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-  z.file('[Content_Types].xml',H+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-  z.file('_rels/.rels',H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-  z.file('word/document.xml',H+'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+ps+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>');
+  z.file('[Content_Types].xml',H+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>');
+  z.file('_rels/.rels',H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="'+R+'/officeDocument" Target="word/document.xml"/></Relationships>');
+  z.file('word/_rels/document.xml.rels',H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="'+R+'/footer" Target="footer1.xml"/></Relationships>');
+  z.file('word/footer1.xml',H+'<w:ftr '+W+'><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:color w:val="888888"/><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:rPr><w:color w:val="888888"/><w:sz w:val="18"/></w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:color w:val="888888"/><w:sz w:val="18"/></w:rPr><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:ftr>');
+  z.file('word/document.xml',H+'<w:document '+W+' xmlns:r="'+R+'"><w:body>'+ps+'<w:sectPr><w:footerReference w:type="default" r:id="rId1"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>');
   return z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
 function mkPdf(text){const{jsPDF}=window.jspdf,d=new jsPDF({unit:'pt',format:'a4'}),PW=d.internal.pageSize.getWidth(),SH=d.internal.pageSize.getHeight(),W=PW-110,Hh=SH-60;let y=60;d.setLineHeightFactor(1.3);
   const clean=t=>stripMd(t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/[^\x00-\xFF\u2022]/gu,'');
@@ -540,15 +556,25 @@ function mkPdf(text){const{jsPDF}=window.jspdf,d=new jsPDF({unit:'pt',format:'a4
   const np=d.getNumberOfPages();for(let i=1;i<=np;i++){d.setPage(i);d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(150);d.text(i+' / '+np,PW/2,SH-25,{align:'center'})}
   return d.output('blob')}
 function csvRows(t,fs){const R=[];let r=[],f='',q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}else if(ch==='"')q=true;else if(ch===fs){r.push(f);f=''}else if(ch==='\n'){r.push(f);R.push(r);r=[];f=''}else f+=ch}r.push(f);R.push(r);return R.filter(r=>r.some(x=>x.trim()))}
-function mkXlsx(c){c=c.replace(/\r/g,'').trim();const wb=XLSX.utils.book_new(),used=new Set();
+function xlsxSheets(c){c=c.replace(/\r/g,'').trim();
+  if(/^[\[{]/.test(c)){try{let j=JSON.parse(c);if(!Array.isArray(j)){const v=Object.values(j).find(Array.isArray);j=v||[j]}if(j.length&&typeof j[0]==='object'){const ks=[...new Set(j.flatMap(o=>Object.keys(o)))];return[['Sheet1',[ks,...j.map(o=>ks.map(k=>String(o[k]??'')))]]]}}catch(e){}}
   const secs=/^###\s/m.test(c)?c.split(/^###\s+/m).filter(x=>x.trim()).map(x=>{const k=x.indexOf('\n');return k<0?[x.trim(),'']:[x.slice(0,k).trim(),x.slice(k+1)]}):[['Sheet1',c]];
-  for(const[nm,body]of secs){let rows;const fl=body.split('\n')[0]||'';
+  return secs.map(([nm,body])=>{let rows;const fl=body.split('\n')[0]||'';
     if(body.includes('|')&&/^\s*\|?\s*:?-{2,}/m.test(body)){rows=[];for(const b of parseMd(body))if(b.t==='tb')rows.push(...b.rows)}
     else{const cnt=ch=>fl.split(ch).length,fs=cnt('\t')>1?'\t':cnt(';')>cnt(',')?';':',';rows=csvRows(body,fs)}
-    const aoa=rows.map(r=>r.map(v=>{v=String(v).trim();if(/^=/.test(v))return{t:'n',f:v.slice(1)};if(/^-?\d+(\.\d+)?$/.test(v)&&v.length<16)return+v;return v}));
-    const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=Array.from({length:Math.max(0,...rows.map(r=>r.length))},(_,k)=>({wch:Math.min(50,Math.max(10,...rows.map(r=>String(r[k]||'').length+2)))}));if(ws['!ref'])ws['!autofilter']={ref:ws['!ref']};
-    let sn=(nm||'Sheet').replace(/[\\\/?*\[\]:]/g,' ').slice(0,31)||'Sheet',i=2;while(used.has(sn.toLowerCase()))sn=sn.slice(0,28)+' '+i++;used.add(sn.toLowerCase());XLSX.utils.book_append_sheet(wb,ws,sn)}
-  return new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
+    return[nm,rows.map(r=>r.map(v=>stripMd(String(v).trim())))]})}
+const xcv=v=>{if(/^=/.test(v))return{formula:v.slice(1)};if(/^-?\d+(\.\d+)?$/.test(v)&&v.length<16)return+v;return v};
+async function mkXlsx(c){const sh=xlsxSheets(c),used=new Set(),MX='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const sname=nm=>{let s=(nm||'Sheet').replace(/[\\\/?*\[\]:]/g,' ').trim().slice(0,31)||'Sheet',i=2;while(used.has(s.toLowerCase()))s=s.slice(0,28)+' '+i++;used.add(s.toLowerCase());return s};
+  if(!window.ExcelJS){const wb=XLSX.utils.book_new();sh.forEach(([nm,rows])=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows.map(r=>r.map(v=>{const x=xcv(v);return x&&x.formula?{t:'n',f:x.formula}:x}))),sname(nm)));return new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:MX})}
+  const wb=new ExcelJS.Workbook(),bd={style:'thin',color:{argb:'FFD0D4DA'}};
+  for(const[nm,rows]of sh){const ws=wb.addWorksheet(sname(nm),{views:[{state:'frozen',ySplit:1}]}),n=Math.max(1,...rows.map(r=>r.length));
+    rows.forEach(r=>ws.addRow(r.map(xcv)));
+    for(let k=1;k<=n;k++)ws.getColumn(k).width=Math.min(50,Math.max(10,...rows.map(r=>String(r[k-1]||'').length+3)));
+    ws.eachRow(r=>r.eachCell(cl=>{cl.border={top:bd,left:bd,bottom:bd,right:bd};cl.alignment={vertical:'middle',wrapText:true};if(typeof cl.value==='number'&&Number.isInteger(cl.value)&&Math.abs(cl.value)>=10000)cl.numFmt='#,##0'}));
+    const hr=ws.getRow(1);hr.height=22;hr.eachCell(cl=>{cl.font={bold:true,color:{argb:'FFFFFFFF'}};cl.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4F6BED'}};cl.alignment={vertical:'middle',horizontal:'center',wrapText:true}});
+    if(rows.length>1)ws.autoFilter={from:{row:1,column:1},to:{row:1,column:n}}}
+  return new Blob([await wb.xlsx.writeBuffer()],{type:MX})}
 async function mkPptx(c){const p=new PptxGenJS();p.layout='LAYOUT_WIDE';c=c.replace(/\r/g,'');
   let secs=c.split(/\n[ \t]*-{3,}[ \t]*\n/);if(secs.length<2&&(c.match(/^#\s/gm)||[]).length>1)secs=c.split(/\n(?=#\s)/);
   const A='4F6BED',F='Calibri';
@@ -571,8 +597,8 @@ function runGen(code){return new Promise((res,rej)=>{const id=Math.random().toSt
 async function copyText(c){try{await navigator.clipboard.writeText(c)}catch(e){const a=document.createElement('textarea');a.value=c;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(x){}a.remove()}}
 async function dl(i){const g=GF[i];if(g)return dlText(g[0],g[1])}
 async function dlText(name,c){name=name.replace(/\.(ppt|doc|xls)$/i,m=>({'.ppt':'.pptx','.doc':'.docx','.xls':'.xlsx'}[m.toLowerCase()]));const ext=name.split('.').pop().toLowerCase();let blob;
-  try{if(['docx','xlsx','pptx'].includes(ext)&&(/^\s*\/\/\s*JS\b/.test(c)||isGenCode(c))){toast('Membuat file...');blob=await runGen(c.replace(/^\s*```[\w]*\n?/,'').replace(/```\s*$/,''))}else if(ext==='docx')blob=await mkDocx(c);else if(ext==='pdf')blob=mkPdf(c);else if(ext==='xlsx')blob=mkXlsx(c);else if(ext==='pptx')blob=await mkPptx(c);else blob=new Blob([ext==='csv'?'\uFEFF'+c:c],{type:MIME[ext]||'text/plain;charset=utf-8'})}
-  catch(e){if(e.gen){toast('Kode file error: '+e.message.slice(0,110)+'. Tekan Ulangi jawaban atau minta AI memperbaikinya.');return}toast(/JSZip|jspdf|XLSX|PptxGenJS/.test(e.message||'')?'Pembuat file belum termuat. Cek internet lalu muat ulang halaman.':'Gagal membuat file');return}
+  try{if(['docx','xlsx','pptx'].includes(ext)&&(/^\s*\/\/\s*JS\b/.test(c)||isGenCode(c))){toast('Membuat file...');blob=await runGen(c.replace(/^\s*```[\w]*\n?/,'').replace(/```\s*$/,''))}else if(ext==='docx')blob=await mkDocx(c);else if(ext==='pdf')blob=mkPdf(c);else if(ext==='xlsx')blob=await mkXlsx(c);else if(ext==='pptx')blob=await mkPptx(c);else blob=new Blob([ext==='csv'?'\uFEFF'+c:c],{type:MIME[ext]||'text/plain;charset=utf-8'})}
+  catch(e){if(e.gen){toast('Kode file error: '+e.message.slice(0,110)+'. Tekan Ulangi jawaban atau minta AI memperbaikinya.');return}toast(/JSZip|jspdf|XLSX|PptxGenJS|ExcelJS/.test(e.message||'')?'Pembuat file belum termuat. Cek internet lalu muat ulang halaman.':'Gagal membuat file: '+String(e.message||e).slice(0,90));return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[\\/:*?"<>|]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('File diunduh: '+name)}
 let pend=[],pendF=[];const MAX=200000,MAX2=300000,MAXA=12;let GEN=false,PN=0;
 function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1568/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.85))};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('format gambar tidak bisa dibaca browser'))};im.src=u})}
@@ -591,6 +617,8 @@ async function addFiles(fs){for(const f of [...fs]){const n=f.name.toLowerCase()
     if(f.type.startsWith('image/')||/\.(png|jpe?g|webp|gif|bmp)$/.test(n))pend.push(await shrink(f));
     else if(n.endsWith('.pdf'))await readPdf(f);
     else if(n.endsWith('.docx'))pendF.push(fileObj(f.name,(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value));
+    else if(/\.(xlsx|xls|xlsm|ods)$/.test(n)){const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});pendF.push(fileObj(f.name,wb.SheetNames.map(s=>'### Sheet: '+s+'\n'+XLSX.utils.sheet_to_csv(wb.Sheets[s])).join('\n\n')))}
+    else if(n.endsWith('.pptx')){const z=await JSZip.loadAsync(await f.arrayBuffer()),ks=Object.keys(z.files).filter(k=>/^ppt\/slides\/slide\d+\.xml$/.test(k)).sort((a,b)=>a.match(/\d+/)[0]-b.match(/\d+/)[0]);let o='';for(const[i,k]of ks.entries()){const x=await z.file(k).async('string');o+='\n[Slide '+(i+1)+']\n'+[...x.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(q=>q[1].replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')).join(' ')}pendF.push(fileObj(f.name,o))}
     else if(n.endsWith('.doc'))toast('Format .doc lama belum didukung. Simpan ulang sebagai .docx');
     else if(f.size<2e6&&(f.type.startsWith('text/')||/\.(txt|md|csv|json|html|xml|log|js|ts|py|css|sql|ya?ml|svg)$/.test(n)))pendF.push(fileObj(f.name,await f.text()));
     else toast('Format tidak didukung: '+f.name);
@@ -634,7 +662,7 @@ $('#in').addEventListener('paste',e=>{const f=[...e.clipboardData.files];if(f.so
   const t=e.clipboardData.getData('text');if(t&&(t.length>1200||t.split('\n').length>20)){e.preventDefault();addPasted(t)}});
 document.addEventListener('dragover',e=>e.preventDefault());
 document.addEventListener('drop',e=>{e.preventDefault();show('chat');addFiles(e.dataTransfer.files)});
-function fixModels(){const c=S.cfg;c.ctx=0;c.maxtok=0;if(!Array.isArray(c.models)||!c.models.length)c.models=[{id:c.model||'claude-opus-5'}];if(!c.models.some(m=>m.id===c.model))c.model=c.models[0].id}
+function fixModels(){const c=S.cfg;c.ctx=0;c.maxtok=+c.maxtok||0;if(!Array.isArray(c.models)||!c.models.length)c.models=[{id:c.model||'claude-opus-5'}];if(!c.models.some(m=>m.id===c.model))c.model=c.models[0].id}
 const blocked=m=>!!m.until&&m.until>Date.now();
 function order(){const l=S.cfg.models,i=Math.max(0,l.findIndex(m=>m.id===S.cfg.model));return[...l.slice(i),...l.slice(0,i)].filter(m=>!blocked(m))}
 function midnightWIB(){const d=new Date(Date.now()+7*36e5);d.setUTCHours(24,0,0,0);return d.getTime()-7*36e5}
@@ -649,7 +677,7 @@ function renderModelUI(){fixModels();const c=S.cfg,eff=order()[0];
   if(al){const t=Math.min(...c.models.map(m=>m.until));lm.innerHTML='<span>Semua model sedang limit. Paling cepat aktif lagi '+new Date(t).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'.</span><button class="btn" data-lg="1">Kelola model</button>'}
   $('#mname').textContent=eff?eff.id+(eff.id!==c.model?' (otomatis)':''):'Semua model limit';
   $('#mpop').innerHTML=c.models.map(m=>`<button data-m="${esc(m.id)}" class="${m.id===c.model?'on':''}"${blocked(m)?' disabled':''}>${esc(m.id)}<small>${untilTxt(m)}</small></button>`).join('')+'<button data-m="__set"><small>Kelola model di Pengaturan</small></button>';
-  $('#mlist').innerHTML=c.models.map((m,i)=>`<div class="mrow"><div><b>${esc(m.id)}</b><small class="${blocked(m)?'lim':''}">${untilTxt(m)}${m.id===c.model?' · dipilih':''}</small></div>${blocked(m)?`<button class="btn" data-mr="${i}">Aktifkan lagi</button>`:''}<button class="btn" data-md="${i}" aria-label="Hapus ${esc(m.id)}">Hapus</button></div>`).join('')}
+  $('#mlist').innerHTML=c.models.map((m,i)=>`<div class="mrow"><div><b>${esc(m.id)}</b><small class="${blocked(m)?'lim':''}">${untilTxt(m)}${m.id===c.model?' · dipilih':''}${m.base?' · '+esc(m.base.replace(/^https?:\/\//,'')):''}${m.key?' · key khusus':''}</small></div>${blocked(m)?`<button class="btn" data-mr="${i}">Aktifkan lagi</button>`:''}<button class="btn" data-md="${i}" aria-label="Hapus ${esc(m.id)}">Hapus</button></div>`).join('')}
 function closeMp(){$('#mpop').hidden=true;$('#mbtn').setAttribute('aria-expanded','false')}
 $('#mbtn').onclick=e=>{e.stopPropagation();closePop();const mp=$('#mpop'),o=mp.hidden;mp.hidden=!o;$('#mbtn').setAttribute('aria-expanded',String(o))};
 $('#mpop').onclick=e=>{const b=e.target.closest('button');if(!b||b.disabled)return;const id=b.dataset.m;closeMp();if(id==='__set'){show('set');return}S.cfg.model=id;save();renderModelUI()};
@@ -657,9 +685,10 @@ $('#mlist').onclick=e=>{const r=e.target.dataset.mr,d=e.target.dataset.md,l=S.cf
   if(r!==undefined){l[+r].until=0}
   else if(d!==undefined){if(l.length<2){toast('Minimal harus ada satu model');return}l.splice(+d,1)}
   else return;save();renderModelUI()};
-function addModel(){const id=$('#newm').value.trim();if(!/^[\w.\-:\/@+]+$/.test(id)){toast('Nama model tidak valid');return}
+function addModel(){const id=$('#newm').value.trim(),base=$('#newb').value.trim().replace(/\/+$/,''),key=$('#newk').value.trim();if(!/^[\w.\-:\/@+]+$/.test(id)){toast('Nama model tidak valid');return}
+  if(base&&!/^https?:\/\//.test(base)){toast('Base URL harus diawali https://');return}
   if(S.cfg.models.some(m=>m.id===id)){toast('Model itu sudah ada');return}
-  S.cfg.models.push({id});$('#newm').value='';save();renderModelUI();toast('Model ditambahkan: '+id)}
+  S.cfg.models.push({id,...(base?{base}:{}),...(key?{key}:{})});$('#newm').value=$('#newb').value=$('#newk').value='';save();renderModelUI();toast('Model ditambahkan: '+id)}
 $('#addm').onclick=addModel;
 $('#newm').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addModel()}});
 setInterval(renderModelUI,30000);
@@ -676,9 +705,9 @@ $('#temp').oninput=e=>$('#tv').textContent=e.target.value;
 $('#saveSet').onclick=()=>{readSet();toast('Pengaturan disimpan')};
 $('#loadModels').onclick=$('#test').onclick=diagnose;
 $('#showKey').onclick=()=>{const k=$('#key'),s=k.type==='password';k.type=s?'text':'password';$('#showKey').textContent=s?'Sembunyikan':'Lihat'};
-$('#exp').onclick=()=>{const d={...S,cfg:{...S.cfg,key:''}};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));a.download='cadangan-goruku-ai-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Cadangan diunduh')};
+$('#exp').onclick=()=>{const d={...S,cfg:{...S.cfg,key:'',models:S.cfg.models.map(({key,...r})=>r)}};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));a.download='cadangan-goruku-ai-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Cadangan diunduh')};
 $('#imp').onclick=()=>$('#file').click();
-$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.chats))throw 0;const key=S.cfg.key;S={...def,...d,cfg:{...def.cfg,...d.cfg,key}};save();renderSet();renderAll();toast('Cadangan dipulihkan')}catch(x){toast('File cadangan tidak valid')}e.target.value=''};
+$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.chats))throw 0;const key=S.cfg.key,old=S.cfg.models||[];S={...def,...d,cfg:{...def.cfg,...d.cfg,key}};S.cfg.models=(S.cfg.models||[]).map(m=>({...m,...(m.key||old.find(o=>o.id===m.id)?.key?{key:m.key||old.find(o=>o.id===m.id).key}:{})}));save();renderSet();renderAll();toast('Cadangan dipulihkan')}catch(x){toast('File cadangan tidak valid')}e.target.value=''};
 $('#wipe').onclick=()=>{if(confirm('Hapus semua percakapan, statistik, dan pengaturan?')){try{localStorage.removeItem(K)}catch(e){}S=structuredClone(def);save();renderSet();renderAll();toast('Semua data dihapus')}};
 /* editor file */
 let ED=null,edT;
@@ -733,7 +762,7 @@ $('#bgimgf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{BGI=a
 $('#rot').onclick=()=>{ROT=(ROT+1)%4;drawImg()};$('#flip').onclick=()=>{FLP=!FLP;drawImg()};
 $('#frs').onclick=()=>{['fbr','fco','fgr'].forEach(i=>$('#'+i).value=0);drawImg()};
 $('#bgdl').onclick=()=>{const cv=$('#bgc'),f=$('#fmt').value,mime=f==='png'?'image/png':f==='webp'?'image/webp':'image/jpeg';let src=cv;if(f==='jpg'){src=document.createElement('canvas');src.width=cv.width;src.height=cv.height;const x=src.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,src.width,src.height);x.drawImage(cv,0,0)}src.toBlob(b=>b?bgSave(b,'gambar.'+f):toast('Format ini tidak didukung browser'),mime,0.92)};
-const VER='2026-10-17.3';
+const VER='2026-10-17.4';
 async function hardRefresh(){try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()))}catch(e){}try{await flush()}catch(e){}location.replace(location.pathname+'?r='+Date.now())}
 async function chkVer(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const m=(await r.text()).match(new RegExp("const VER"+"='([^']+)'"));if(m&&m[1]!==VER)$('#upd').hidden=false}catch(e){}}
 $('#ver').textContent=VER;$('#refr').onclick=hardRefresh;$('#updGo').onclick=hardRefresh;
@@ -741,5 +770,44 @@ addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'
 boot();chkVer();
 try{const d=localStorage.getItem(DK);if(d){$('#in').value=d;autosize()}}catch(e){}
 </script>
+<!-- TEMPEL TEPAT SEBELUM </body> di index.html -->
+<style>
+@media(min-width:900px){
+  body{transition:padding-right .2s}
+  body.edock{padding-right:min(48vw,720px)}
+  #editor{inset:0 0 0 auto;width:min(48vw,720px);background:none;pointer-events:none;display:block}
+  #editor .ebox{pointer-events:auto;width:100%;max-width:none;height:100%;border-radius:0;border-width:0 0 0 1px;box-shadow:var(--shadow)}
+  #editor .ebody{grid-template-columns:1fr;grid-template-rows:3fr 2fr}
+  #editor .ebody.nopv{grid-template-rows:1fr}
+  #editor #epv{order:-1;border-bottom:1px solid var(--line)}
+  #editor #esrc{border-right:0}
+}
+</style>
+<script>
+(function(){
+  var ed=document.getElementById('editor'),sb=document.getElementById('send');
+  function dock(){document.body.classList.toggle('edock',!ed.hidden&&innerWidth>=900)}
+  new MutationObserver(dock).observe(ed,{attributes:true,attributeFilter:['hidden']});
+  addEventListener('resize',dock);
+  /* setelah AI selesai menjawab, otomatis buka file html/svg terakhir di panel kanan */
+  var was=false;
+  new MutationObserver(function(){
+    var busy=sb.textContent==='Berhenti';
+    if(was&&!busy)setTimeout(auto,350);
+    was=busy;
+  }).observe(sb,{childList:true,characterData:true,subtree:true});
+  function auto(){
+    if(innerWidth<900)return;
+    var ms=document.querySelectorAll('#thread .m'),m=ms[ms.length-1];
+    if(!m)return;
+    var bs=[].filter.call(m.querySelectorAll('.fcard button[data-pv]'),function(b){
+      var n=b.closest('.fcard').querySelector('b');
+      return n&&/\.(html?|svg)$/i.test(n.textContent.trim());
+    });
+    if(bs.length)bs[bs.length-1].click();
+  }
+})();
+</script>
+
 </body>
 </html>
