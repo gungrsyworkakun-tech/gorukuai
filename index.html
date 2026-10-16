@@ -100,6 +100,11 @@ nav .sp{flex:1}#saved{font-size:12px;color:var(--mute);margin-right:6px}
 .cb.col pre{max-height:280px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 72%,transparent);mask-image:linear-gradient(#000 72%,transparent)}
 .cbx{display:block;width:100%;border:0;border-top:1px solid var(--line);background:var(--codeh);padding:8px;color:var(--mute);font:600 12.5px var(--f)}.cbx:hover{color:var(--ink)}
 .cb.live pre{max-height:150px;overflow:hidden;opacity:.75}.cb.live .cbh{gap:10px}.cb.live .cbh>span:last-child{margin-left:auto}
+.pcard{width:156px;border:1px solid var(--line);border-radius:12px;background:var(--raise);padding:8px;display:flex;flex-direction:column;gap:6px}
+.psnip{font:10.5px/1.4 var(--m);color:var(--mute);height:64px;overflow:hidden;word-break:break-all;cursor:pointer;-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+.prow{display:flex;align-items:center;gap:6px}.pbadge{border:1px solid var(--line);border-radius:6px;padding:1px 7px;font:600 11px var(--f)}.pm{font-size:11px;color:var(--mute);flex:1;white-space:nowrap}
+.prow button{border:0;background:none;color:var(--mute);width:24px;height:24px;border-radius:6px}.prow button:hover{background:var(--bg);color:var(--ink)}
+.chip.gen{border-color:var(--acc);color:var(--acc)}
 #editor{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:25}#editor[hidden]{display:none}
 .ebox{width:96%;max-width:1200px;height:90vh;background:var(--panel);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden}
 .ebox .vhead{flex-wrap:wrap}
@@ -163,6 +168,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
           <div class="pop" id="pop" hidden>
             <button data-k="img">Gambar<small>JPG, PNG, tangkapan layar</small></button>
             <button data-k="doc">Dokumen<small>PDF, Word (.docx), teks</small></button>
+            <button data-k="gen">Buat gambar<small>AI fokus membuat gambar (SVG)</small></button>
           </div>
         </div>
         <span class="sp"></span>
@@ -277,10 +283,10 @@ function md(t,mi,live){const CB=[];let fk=0,bn=0;
   t=t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(_,n,c)=>{GF.push([n.trim(),c.replace(/\n$/,''),mi,fk++]);return '\n\uE000F'+(GF.length-1)+'\uE001\n'}).replace(/```file:([^\n`]*)(?:\n[\s\S]*)?$/,(_,n)=>'\n\uE000W'+n.trim()+'\uE001').replace(/```([\w+#.-]*)\n?([\s\S]*?)```/g,(_,l,c)=>{CB.push(code(l,c,mi+'-'+(bn++)));return '\n\uE000C'+(CB.length-1)+'\uE001\n'}).replace(/```([\w+#.-]*)\n?([\s\S]*)$/,(_,l,c)=>{CB.push(live?liveCode(l,c):code(l,c,mi+'-'+(bn++)));return '\n\uE000C'+(CB.length-1)+'\uE001\n'});
   return blocks(esc(t)).replace(/\uE000C(\d+)\uE001/g,(_,i)=>CB[+i]).replace(/\uE000F(\d+)\uE001/g,(_,i)=>fcard(+i)).replace(/\uE000W([^\uE001]*)\uE001/g,(_,n)=>'<div class="fcard"><div><b>'+esc(n)+'</b><small>Sedang dibuat...</small></div></div>')}
 const chat=()=>S.chats.find(c=>c.id===S.cur);
-function newChat(){const c={id:Date.now().toString(36),title:'Percakapan baru',msgs:[]};S.chats.unshift(c);S.cur=c.id;save();renderAll();$('#in').focus()}
+function newChat(){GEN=false;const c={id:Date.now().toString(36),title:'Percakapan baru',msgs:[]};S.chats.unshift(c);S.cur=c.id;save();renderAll();$('#in').focus()}
 function renderList(){const q=($('#q').value||'').trim().toLowerCase(),ls=q?S.chats.filter(c=>c.title.toLowerCase().includes(q)||c.msgs.some(m=>(m.content||'').toLowerCase().includes(q))):S.chats;
   $('#list').innerHTML=ls.map(c=>`<div class="item ${c.id===S.cur?'on':''}" data-id="${c.id}"><span>${esc(c.title)}</span><button data-ren="${c.id}" aria-label="Ganti nama percakapan" title="Ganti nama">✎</button><button data-del="${c.id}" aria-label="Hapus percakapan" title="Hapus">✕</button></div>`).join('')||'<div class="hint" style="padding:10px">'+(q?'Tidak ada hasil.':'Belum ada percakapan.')+'</div>'}
-function thumbs(m,mi){let h='';if(m.imgs&&m.imgs.length)h+='<div class="thumbs">'+m.imgs.map((u,j)=>u&&u.startsWith('data:image/')&&!/["'<>]/.test(u)?`<img src="${u}" alt="Gambar terlampir, klik untuk memperbesar" data-mi="${mi}" data-ii="${j}" tabindex="0" role="button">`:'<span class="gone">(gambar tidak tersimpan)</span>').join('')+'</div>';if(m.files&&m.files.length)h+=m.files.map((f,j)=>`<div class="chip"><span data-mi="${mi}" data-fi="${j}" tabindex="0" role="button">${esc(f.name)}</span></div>`).join('');return h}
+function thumbs(m,mi){let h='';if(m.imgs&&m.imgs.length)h+='<div class="thumbs">'+m.imgs.map((u,j)=>u&&u.startsWith('data:image/')&&!/["'<>]/.test(u)?`<img src="${u}" alt="Gambar terlampir, klik untuk memperbesar" data-mi="${mi}" data-ii="${j}" tabindex="0" role="button">`:'<span class="gone">(gambar tidak tersimpan)</span>').join('')+'</div>';if(m.files&&m.files.length)h+=m.files.map((f,j)=>`<div class="chip"><span data-mi="${mi}" data-fi="${j}" tabindex="0" role="button">${esc(f.name)}</span></div>`).join('');if(m.gen)h+='<div class="chip"><span>Mode gambar</span></div>';return h}
 function think(m){const lbl=m.content?'Menulis jawaban':(m.st||'Sedang berpikir');return '<div class="think" role="status"><span class="orb"></span><span>'+esc(lbl)+'</span><span class="dots"><i></i><i></i><i></i></span><span class="tt"></span></div>'}
 function renderThread(force){GF=[];CODES=[];const c=chat(),t=$('#thread'),box=$('#msgs'),near=box.scrollHeight-box.scrollTop-box.clientHeight<140;
   if(!c||!c.msgs.length){t.innerHTML='<div class="empty">'+LOGO(60)+'<h2>Mau mengerjakan apa hari ini?</h2><p>Tanya apa saja, lampirkan file, atau minta dibuatkan dokumen.</p><div class="sug"><button data-s="Buatkan laporan mingguan dalam file Word">Laporan Word</button><button data-s="Buatkan tabel anggaran bulanan dalam file Excel">Tabel Excel</button><button data-s="Buatkan presentasi 5 slide tentang ">Presentasi</button><button data-s="Buatkan halaman web sederhana untuk ">Halaman web</button></div></div>';return}
@@ -304,13 +310,13 @@ async function send(){
   if(busy)return;const txt=$('#in').value.trim();if(!txt&&!pend.length&&!pendF.length)return;
   fixModels();if(!S.cfg.key){toast('Isi API key di Pengaturan dulu');show('set');return}
   if(!chat())newChat();const c=chat();
-  c.msgs.push({role:'user',content:txt,imgs:pend.length?pend.slice():undefined,files:pendF.length?pendF.slice():undefined});if(c.msgs.length===1)c.title=txt.slice(0,40)||pendF[0]?.name||'Gambar';pend=[];pendF=[];renderPrev();
+  c.msgs.push({role:'user',content:txt,imgs:pend.length?pend.slice():undefined,files:pendF.length?pendF.slice():undefined,gen:GEN||undefined});if(c.msgs.length===1)c.title=txt.slice(0,40)||pendF[0]?.name||'Gambar';pend=[];pendF=[];renderPrev();
   $('#in').value='';autosize();clearDraft();return gen(c)}
 function regen(){if(busy)return;const c=chat();if(!c)return;fixModels();if(!S.cfg.key){toast('Isi API key di Pengaturan dulu');show('set');return}
   while(c.msgs.length&&c.msgs[c.msgs.length-1].role!=='user')c.msgs.pop();if(c.msgs.length)gen(c)}
 async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi model'};c.msgs.push(bot);setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
   const hist=c.msgs.slice(0,-1).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=(m.imgs||[]).filter(Boolean),t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...(t?[{type:'text',text:t}]:[]),...im.map(u=>({type:'image_url',image_url:{url:u}}))]:t}});
-  hist.unshift({role:'system',content:FILE_PROMPT+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
+  const lu=[...c.msgs].reverse().find(m=>m.role==='user');hist.unshift({role:'system',content:FILE_PROMPT+(lu&&lu.gen?'\n\n'+IMG_PROMPT:'')+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
   let usage=null,used=null;const tried=[];
   for(;;){const m=order().find(x=>!tried.includes(x.id));
     if(!m){if(!bot.content){bot.content='Semua model sedang limit. Tambahkan model lain di Pengaturan atau coba lagi nanti.';bot.err=true}break}
@@ -376,7 +382,7 @@ async function dlText(name,c){const ext=name.split('.').pop().toLowerCase();let 
   try{if(ext==='docx')blob=await mkDocx(c);else if(ext==='pdf')blob=mkPdf(c);else if(ext==='xlsx')blob=mkXlsx(c);else if(ext==='pptx')blob=await mkPptx(c);else blob=new Blob([ext==='csv'?'\uFEFF'+c:c],{type:MIME[ext]||'text/plain;charset=utf-8'})}
   catch(e){toast(/JSZip|jspdf|XLSX|PptxGenJS/.test(e.message||'')?'Pembuat file belum termuat. Cek internet lalu muat ulang halaman.':'Gagal membuat file');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[\\/:*?"<>|]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('File diunduh: '+name)}
-let pend=[],pendF=[];const MAX=60000;
+let pend=[],pendF=[];const MAX=60000,MAX2=150000;let GEN=false,PN=0;
 function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.8))};im.onerror=()=>{URL.revokeObjectURL(u);rej()};im.src=u})}
 function fileObj(name,t){t=(t||'').trim();if(!t)throw new Error('kosong');return{name,text:t.length>MAX?t.slice(0,MAX)+'\n[...dipotong, file terlalu panjang]':t}}
 let pdfReady;
@@ -398,10 +404,10 @@ async function addFiles(fs){for(const f of [...fs]){const n=f.name.toLowerCase()
     else toast('Format tidak didukung: '+f.name);
   }catch(e){toast(/mammoth|pdfjs/.test(e.message||'')?'Pembaca dokumen belum termuat. Cek internet lalu muat ulang halaman.':e.message==='kosong'?'Tidak ada teks yang bisa dibaca di '+f.name:'Gagal membaca '+f.name)}}
   renderPrev()}
-function renderPrev(){$('#prev').innerHTML=pend.map((u,i)=>`<div class="th"><img src="${u}" alt="Lampiran gambar ${i+1}, klik untuk memperbesar" data-pi="${i}" tabindex="0" role="button"><button data-rm="${i}" aria-label="Hapus gambar ${i+1}">✕</button></div>`).join('')+pendF.map((f,i)=>`<div class="chip"><span data-pf="${i}" tabindex="0" role="button">${esc(f.name)}</span><button data-rf="${i}" aria-label="Hapus ${esc(f.name)}">✕</button></div>`).join('')}
+function renderPrev(){$('#prev').innerHTML=(GEN?'<div class="chip gen"><span>Mode gambar</span><button data-gx="1" aria-label="Matikan mode gambar">✕</button></div>':'')+pend.map((u,i)=>`<div class="th"><img src="${u}" alt="Lampiran gambar ${i+1}, klik untuk memperbesar" data-pi="${i}" tabindex="0" role="button"><button data-rm="${i}" aria-label="Hapus gambar ${i+1}">✕</button></div>`).join('')+pendF.map((f,i)=>f.pasted?`<div class="pcard"><div class="psnip" data-pf="${i}" tabindex="0" role="button" title="Lihat isi">${esc(f.text.slice(0,180))}</div><div class="prow"><span class="pbadge">Ditempel</span><span class="pm">${f.text.split('\n').length} baris</span><button data-pe="${i}" aria-label="Edit teks tempelan" title="Edit">✎</button><button data-rf="${i}" aria-label="Hapus tempelan" title="Hapus">✕</button></div></div>`:`<div class="chip"><span data-pf="${i}" tabindex="0" role="button">${esc(f.name)}</span><button data-rf="${i}" aria-label="Hapus ${esc(f.name)}">✕</button></div>`).join('')}
 const pop=$('#pop'),closePop=()=>{pop.hidden=true;$('#attach').setAttribute('aria-expanded','false')};
 $('#attach').onclick=e=>{e.stopPropagation();closeMp();const o=pop.hidden;pop.hidden=!o;$('#attach').setAttribute('aria-expanded',String(o))};
-pop.onclick=e=>{const k=e.target.closest('button')?.dataset.k;if(!k)return;closePop();$(k==='img'?'#imgf':'#docf').click()};
+pop.onclick=e=>{const k=e.target.closest('button')?.dataset.k;if(!k)return;closePop();if(k==='gen'){GEN=!GEN;renderPrev();toast(GEN?'Mode gambar aktif. AI akan fokus membuat gambar.':'Mode gambar dimatikan');$('#in').focus();return}$(k==='img'?'#imgf':'#docf').click()};
 $('#docf').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 function view(k,x,name,note){if(!x){toast('Isi lampiran ini sudah tidak tersimpan karena penyimpanan penuh');return}
   const b=$('#vb');b.innerHTML='';$('#vn').textContent=k==='img'?'':(note||'Teks yang terbaca dari file. Inilah yang dikirim ke model.');
@@ -416,6 +422,7 @@ document.addEventListener('click',e=>{const t=e.target,d=t.dataset||{};
   const cb=t.closest('[data-cp]');
   if(cb){const i=+cb.dataset.cp,s=cb.querySelector('span');copyText(CODES[i]??'');if(s){s.textContent='Tersalin';setTimeout(()=>s.textContent='Salin',1500)}return}
   if(d.rg!==undefined){regen();return}
+  if(d.pe!==undefined){openPendEditor(+d.pe);return}
   if(d.cm!==undefined){const m=chat()?.msgs[+d.cm];if(m){copyText(m.content);t.textContent='Tersalin';setTimeout(()=>{t.textContent='Salin jawaban'},1500)}return}
   if(d.dl!==undefined){dl(+d.dl);return}
   const ex=t.closest('[data-ex]');
@@ -428,8 +435,9 @@ document.addEventListener('click',e=>{const t=e.target,d=t.dataset||{};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#editor').hidden)closeEd();closePop();closeMp();$('#viewer').hidden=true}
   if((e.key==='Enter'||e.key===' ')&&e.target.getAttribute&&e.target.getAttribute('role')==='button'){e.preventDefault();e.target.click()}});
 $('#imgf').onchange=e=>{addFiles(e.target.files);e.target.value=''};
-$('#prev').onclick=e=>{const i=e.target.dataset.rm,j=e.target.dataset.rf;if(i!==undefined)pend.splice(+i,1);if(j!==undefined)pendF.splice(+j,1);renderPrev()};
-$('#in').addEventListener('paste',e=>{const f=[...e.clipboardData.files];if(f.some(x=>x.type.startsWith('image/'))){e.preventDefault();addFiles(f)}});
+$('#prev').onclick=e=>{if(e.target.dataset.gx){GEN=false;renderPrev();return}const i=e.target.dataset.rm,j=e.target.dataset.rf;if(i!==undefined)pend.splice(+i,1);if(j!==undefined)pendF.splice(+j,1);renderPrev()};
+$('#in').addEventListener('paste',e=>{const f=[...e.clipboardData.files];if(f.some(x=>x.type.startsWith('image/'))){e.preventDefault();addFiles(f);return}
+  const t=e.clipboardData.getData('text');if(t&&(t.length>1200||t.split('\n').length>20)){e.preventDefault();addPasted(t)}});
 document.addEventListener('dragover',e=>e.preventDefault());
 document.addEventListener('drop',e=>{e.preventDefault();show('chat');addFiles(e.dataTransfer.files)});
 function fixModels(){const c=S.cfg;if(!Array.isArray(c.models)||!c.models.length)c.models=[{id:c.model||'claude-opus-5'}];if(!c.models.some(m=>m.id===c.model))c.model=c.models[0].id}
@@ -484,12 +492,16 @@ function edPrev(){if(!ED||!PV(ED.name))return;const v=$('#esrc').value,sv=/\.svg
 function closeEd(){if(!ED)return;if($('#esrc').value!==ED.src&&!confirm('Perubahan belum disimpan. Tutup tanpa menyimpan?'))return;$('#editor').hidden=true;$('#epv').replaceChildren();ED=null}
 $('#esrc').addEventListener('input',()=>{clearTimeout(edT);edT=setTimeout(edPrev,300);$('#ed').textContent='Belum disimpan'});
 $('#esrc').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const a=e.target,p=a.selectionStart;a.setRangeText('  ',p,a.selectionEnd,'end');a.dispatchEvent(new Event('input'))}});
-$('#esv').onclick=()=>{if(!ED)return;const m=chat()?.msgs[ED.mi];if(!m){toast('Pesan asal file tidak ditemukan');return}const v=$('#esrc').value;m.content=setBlock(m.content,ED.k,v);ED.src=v;save();renderThread();$('#ed').textContent='Tersimpan';toast('Perubahan disimpan ke percakapan')};
+$('#esv').onclick=()=>{if(!ED)return;if(ED.pf!==undefined){const f=pendF[ED.pf];if(!f){toast('Lampiran sudah dihapus');return}const v=$('#esrc').value;f.text=v;ED.src=v;renderPrev();$('#ed').textContent='Tersimpan';toast('Teks lampiran diperbarui');return}const m=chat()?.msgs[ED.mi];if(!m){toast('Pesan asal file tidak ditemukan');return}const v=$('#esrc').value;m.content=setBlock(m.content,ED.k,v);ED.src=v;save();renderThread();$('#ed').textContent='Tersimpan';toast('Perubahan disimpan ke percakapan')};
 $('#edl').onclick=()=>{if(ED)dlText(ED.name,$('#esrc').value)};
 $('#ex').onclick=closeEd;
 $('#epng').onclick=()=>{if(!ED)return;const c=$('#esrc').value,nm=ED.name,vb=c.match(/viewBox\s*=\s*"\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/),im=new Image();
   im.onload=()=>{let w=1200,h=900;if(vb&&+vb[1]>0){h=Math.round(1200*vb[2]/vb[1])}else if(im.naturalWidth){w=im.naturalWidth*2;h=im.naturalHeight*2}const cv=document.createElement('canvas');cv.width=w;cv.height=h;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm.replace(/\.svg$/i,'')+'.png';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('PNG diunduh')},'image/png')};
   im.onerror=()=>toast('SVG tidak valid, tidak bisa dijadikan PNG');im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)};
+const IMG_PROMPT='MODE GAMBAR AKTIF: pengguna ingin dibuatkan gambar. Fokus hanya pada gambar: tulis satu file .svg lengkap (elemen svg dengan atribut viewBox, komposisi rapi, warna dan gradien yang menarik, teks seperlunya) di dalam blok file. Jangan membuat kode atau file lain. Jika pengguna melampirkan file svg atau minta mengubah gambar sebelumnya, tulis ulang svg lengkap dengan nama file yang sama. Penjelasan cukup satu atau dua kalimat.';
+function addPasted(t){if(pend.length+pendF.length>=6){toast('Maksimal 6 lampiran per pesan');return}t=t.trim();const ty=/^<!doctype html|^<html/i.test(t)?'html':/^<svg/i.test(t)?'svg':'txt';
+  pendF.push({name:'tempelan'+(++PN)+'.'+ty,text:t.length>MAX2?t.slice(0,MAX2)+'\n[...dipotong, teks terlalu panjang]':t,pasted:true});renderPrev();toast('Teks panjang dijadikan lampiran. Klik pensil untuk mengedit.')}
+function openPendEditor(i){const f=pendF[i];if(!f)return;ED={name:f.name,pf:i,src:f.text};$('#et').textContent=f.name;$('#esrc').value=f.text;$('.ebody').classList.toggle('nopv',!PV(f.name));$('#epng').hidden=!/\.svg$/i.test(f.name);$('#ed').textContent='';$('#editor').hidden=false;edPrev();$('#esrc').focus()}
 const DK='goruku.draft';
 function clearDraft(){try{localStorage.removeItem(DK)}catch(e){}}
 $('#in').addEventListener('input',()=>{try{const v=$('#in').value;v?localStorage.setItem(DK,v):localStorage.removeItem(DK)}catch(e){}});
