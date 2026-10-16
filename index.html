@@ -359,7 +359,14 @@ function renderThread(force){GF=[];CODES=[];const c=chat(),t=$('#thread'),box=$(
   t.innerHTML=c.msgs.map((m,mi)=>{if(mi===last){lastG=GF.length;lastC=CODES.length}return `<div class="m ${m.role==='user'?'u':''} ${m.err?'err':''}">${m.role==='user'?'':'<div class="av">'+LOGO(28)+'</div>'}<div class="b">${inner(m,mi,last)}</div></div>`}).join('');
   if(near||force)box.scrollTop=box.scrollHeight;updDown()}
 let lastG=0,lastC=0,rq=0;
-function inner(m,mi,last){const u=m.role==='user',live=busy&&mi===last&&!u;return thumbs(m,mi)+(m.notes||[]).map(n=>'<div class="note">'+esc(n)+'</div>').join('')+md(m.content,mi,live)+(live?think(m):'')+(!u&&!live&&m.content?'<div class="mdl">'+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':'')}
+function inner(m,mi,last){const u=m.role==='user',live=busy&&mi===last&&!u;return thumbs(m,mi)+(m.notes||[]).map(n=>'<div class="note">'+esc(n)+'</div>').join('')+md(m.content,mi,live)+(live?think(m):'')+(!u&&!live&&m.content?'<div class="mdl">'+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(m.err?'':XP(mi))+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':'')}
+const XP=mi=>'<span>Unduh:</span>'+[['docx','Word'],['xlsx','Excel'],['pptx','PPT'],['pdf','PDF']].map(x=>'<button data-xp="'+mi+'|'+x[0]+'">'+x[1]+'</button>').join('');
+function exportMsg(mi,fmt){const c=chat(),m=c&&c.msgs[mi];if(!m)return;let t=m.content.replace(/```file:[^\n`]*\n[\s\S]*?```/g,'').trim();if(!t)t=m.content;
+  const fence=t.match(/```[\w+#.-]*\n([\s\S]*?)```/);
+  if(fmt==='xlsx'&&fence&&!/^\s*\|/m.test(t))t=fence[1];
+  else if(fmt==='pptx')t='# '+(c.title||'Presentasi')+'\n\n'+t.replace(/```[\w+#.-]*\n?/g,'').replace(/^#{1,4}\s+/gm,'# ').replace(/\n[ \t]*-{3,}[ \t]*\n/g,'\n');
+  else t=t.replace(/```[\w+#.-]*\n?/g,'');
+  dlText(((c.title||'jawaban').replace(/[^\w\- ]+/g,'').trim().slice(0,40)||'jawaban')+'.'+fmt,t)}
 function stream(){if(rq)return;rq=setTimeout(()=>{rq=0;const c=chat();if(!c||!busy)return;const mi=c.msgs.length-1,m=c.msgs[mi],els=document.querySelectorAll('#thread .m'),el=els[els.length-1];
   if(!m||!el||m.role==='user'||els.length!==c.msgs.length){renderThread();return}
   const box=$('#msgs'),near=box.scrollHeight-box.scrollTop-box.clientHeight<140;GF.length=lastG;CODES.length=lastC;el.className='m'+(m.err?' err':'');el.querySelector('.b').innerHTML=inner(m,mi,mi);if(near)box.scrollTop=box.scrollHeight;updDown()},60)}
@@ -555,6 +562,7 @@ document.addEventListener('click',e=>{const t=e.target,d=t.dataset||{};
   if(d.pe!==undefined){openPendEditor(+d.pe);return}
   if(d.cm!==undefined){const m=chat()?.msgs[+d.cm];if(m){copyText(m.content);t.textContent='Tersalin';setTimeout(()=>{t.textContent='Salin jawaban'},1500)}return}
   if(d.dl!==undefined){dl(+d.dl);return}
+  if(d.xp!==undefined){const[a,b]=d.xp.split('|');exportMsg(+a,b);return}
   const ex=t.closest('[data-ex]');
   if(ex){const k=ex.dataset.ex,box=ex.closest('.cb');if(EXP.has(k)){EXP.delete(k);box.classList.add('col');ex.textContent='Tampilkan semua'}else{EXP.add(k);box.classList.remove('col');ex.textContent='Ciutkan'}return}
   if(d.pv!==undefined){openEditor(+d.pv);return}
