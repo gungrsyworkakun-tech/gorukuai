@@ -115,6 +115,7 @@ nav .sp{flex:1}#saved{font-size:12px;color:var(--mute);margin-right:6px}
 #esrc{resize:none;border:0;border-right:1px solid var(--line);background:var(--code);padding:14px;font:13px/1.6 var(--m);outline:0;white-space:pre;overflow:auto;tab-size:2;min-height:0}
 #epv{background:#fff;min-height:0}#epv iframe{display:block;width:100%;height:100%;border:0;background:#fff}
 @media(max-width:760px){.ebody{grid-template-columns:1fr;grid-template-rows:1fr 1fr}#esrc{border-right:0;border-bottom:1px solid var(--line)}}
+@media(prefers-reduced-motion:reduce){.x{}}
 .pad{padding:24px 16px;overflow:auto;flex:1}.pad h2{font:700 24px var(--h);margin:0 0 16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:22px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}.stat b{display:block;font:700 28px var(--h)}.stat span{color:var(--mute);font-size:13px}
@@ -139,6 +140,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
 #menu{display:grid}#saved{display:none}nav{padding:8px 10px}nav .tab{padding:7px 10px}
 .empty h2{font-size:30px}.u .b{max-width:92%}.av{display:none}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
 @media(max-width:760px){
 nav{gap:2px;overflow-x:auto;scrollbar-width:none;padding:8px 10px}nav::-webkit-scrollbar{display:none}
 nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .sp{flex:1 0 8px}.ibtn{flex-shrink:0}
@@ -250,16 +252,11 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
       <label for="key">API key</label>
       <div class="keyrow"><input id="key" type="password" autocomplete="off" placeholder="sk-..."><button class="btn" id="showKey" type="button">Lihat</button></div>
       <div class="hint">Disimpan di browser ini saja, tidak ikut ke GitHub. Jangan isi di komputer umum.</div>
-      <label for="sys">Instruksi sistem</label>
+      <label for="sys">Instruksi sistem tambahan (opsional)</label>
       <textarea id="sys" rows="3" placeholder="Contoh: Jawab dalam bahasa Indonesia yang ringkas."></textarea>
+      <div class="hint">Aturan pembuatan file Word, Excel, dan PPT sudah otomatis ikut terkirim, tidak perlu diisi di sini.</div>
       <label for="temp">Kreativitas (temperature): <span id="tv"></span></label>
       <input id="temp" type="range" min="0" max="2" step="0.1">
-      <label for="ctx">Pesan terakhir yang dikirim ke AI</label>
-      <input id="ctx" type="number" min="0" step="1" placeholder="20">
-      <div class="hint">Makin sedikit, makin cepat dan hemat. Isi 0 untuk mengirim seluruh percakapan.</div>
-      <label for="maxtok">Batas panjang jawaban (token)</label>
-      <input id="maxtok" type="number" min="0" step="100" placeholder="0">
-      <div class="hint">Isi 0 untuk tanpa batas. Jawaban lebih pendek selesai lebih cepat, tapi bisa terpotong.</div>
       <label for="imgm">Model gambar (opsional)</label>
       <input id="imgm" list="models" placeholder="contoh: gpt-image-1">
       <div class="hint">Isi jika ModelRouter punya endpoint /images/generations. Kosong = Mode gambar membuat SVG lewat model chat.</div>
@@ -305,7 +302,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundle.js"></script>
 <script>
 const $=s=>document.querySelector(s), K='dashboardAI.v1';
-const def={chats:[],cur:null,cfg:{base:'https://modelrouter.id/v1',key:'',model:'claude-opus-5',models:[],sys:'',temp:0.7,ctx:20,maxtok:0,imgModel:''},usage:{req:0,tin:0,tout:0,models:{}}};
+const def={chats:[],cur:null,cfg:{base:'https://modelrouter.id/v1',key:'',model:'claude-opus-5',models:[],sys:'',temp:0.7,ctx:0,maxtok:0,imgModel:''},usage:{req:0,tin:0,tout:0,models:{}}};
 let S=structuredClone(def), busy=false, ctrl=null, t0=0;
 function load(){try{const d=JSON.parse(localStorage.getItem(K));return d?{...def,...d,cfg:{...def.cfg,...d.cfg}}:structuredClone(def)}catch(e){return structuredClone(def)}}
 function saveLS(){for(;;){try{localStorage.setItem(K,JSON.stringify(S));return true}catch(e){
@@ -342,7 +339,17 @@ $('#logoB').innerHTML=LOGO(30);
 $('#themeBtn').onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('goruku.theme',t)}catch(e){}};
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{let s=null;try{s=localStorage.getItem('goruku.theme')}catch(x){}if(!s)document.documentElement.dataset.theme=e.matches?'dark':'light'});
 let GF=[],CODES=[];
-function fcard(i){const[n,c]=GF[i],kb=(new Blob([c]).size/1024).toFixed(1),sv=/\.svg$/i.test(n);return '<div class="fcard">'+(sv?'<img class="fthumb" data-pv="'+i+'" alt="Pratinjau '+esc(n)+'" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)+'">':'')+'<div class="frow"><div><b>'+esc(n)+'</b><small>'+kb+' KB</small></div><button class="btn" data-pv="'+i+'">Buka &amp; edit</button><button class="btn p" data-dl="'+i+'">Unduh</button></div></div>'}
+/* kode pembuat Word/Excel/PPT yang salah ditaruh di blok javascript biasa otomatis dijadikan kartu file */
+const isGenCode=c=>/new\s+PptxGenJS|docx\.Packer|Packer\.to(Blob|Buffer)|ExcelJS\.Workbook|new\s+ExcelJS|=\s*docx\b/.test(c||'');
+const OFFX={docx:'Word',xlsx:'Excel',pptx:'PowerPoint'};
+function fixFences(t){
+  if(!t)return t;
+  const nm=((chat()?.title||'').replace(/[^\w\- ]+/g,'').trim().slice(0,30)||'dokumen').replace(/ +/g,'_');
+  const ext=c=>/PptxGenJS/.test(c)?'pptx':/ExcelJS/.test(c)?'xlsx':'docx';
+  const fix=c=>/^\s*\/\/\s*JS\b/.test(c)?c:'// JS\n'+c;
+  t=t.replace(/```(?:javascript|js|node)[ \t]*\n([\s\S]*?)```/g,(m,c)=>isGenCode(c)?'```file:'+nm+'.'+ext(c)+'\n'+fix(c).replace(/\n$/,'')+'\n```':m);
+  return t.replace(/```(?:javascript|js|node)[ \t]*\n((?:(?!```)[\s\S])*)$/,(m,c)=>isGenCode(c)?'```file:'+nm+'.'+ext(c)+'\n'+c:m)}
+function fcard(i){const[n,c]=GF[i],kb=(new Blob([c]).size/1024).toFixed(1),x=n.split('.').pop().toLowerCase(),of=!!OFFX[x],sv=/\.svg$/i.test(n);return '<div class="fcard">'+(sv?'<img class="fthumb" data-pv="'+i+'" alt="Pratinjau '+esc(n)+'" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)+'">':'')+'<div class="frow"><div><b>'+esc(n)+'</b><small>'+(of?'File '+OFFX[x]+' siap diunduh':kb+' KB')+'</small></div><button class="btn" data-pv="'+i+'">'+(of?'Lihat kode':'Buka &amp; edit')+'</button><button class="btn p" data-dl="'+i+'">'+(of?'Unduh '+OFFX[x]:'Unduh')+'</button></div></div>'}
 function lnk(x){return x.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)"']+)\)|https?:\/\/(?:(?!&[lg]t;)[^\s<>()"'])+/g,(m,t,u)=>{let h=u||m,tail='';if(!u){const q=h.match(/[.,;:!?]+$/);if(q){tail=q[0];h=h.slice(0,-tail.length)}}return '<a href="'+h+'" target="_blank" rel="noopener noreferrer">'+(t||h)+'</a>'+tail})}
 function inl(x){return x.split(/(`[^`\n]+`)/).map((p,k)=>k%2?'<code>'+p.slice(1,-1)+'</code>':lnk(p).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*\n]*)\*/g,'$1<i>$2</i>')).join('')}
 const TB=/^\s*\|?\s*:?-{2,}[-:| ]*$/;
@@ -367,15 +374,6 @@ const CPI='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="c
 const EXP=new Set();
 function code(l,c,key){c=c.replace(/\n$/,'');CODES.push(c);const n=c.split('\n').length,long=n>16,col=long&&!EXP.has(key);return '<div class="cb'+(col?' col':'')+'"><div class="cbh"><span>'+esc(l||'kode')+(long?' \u00b7 '+n+' baris':'')+'</span><button data-cp="'+(CODES.length-1)+'">'+CPI+'<span>Salin</span></button></div><pre><code>'+hl(esc(c),l)+'</code></pre>'+(long?'<button class="cbx" data-ex="'+key+'">'+(col?'Tampilkan semua':'Ciutkan')+'</button>':'')+'</div>'}
 function liveCode(l,c){const L=c.split('\n');return '<div class="cb live"><div class="cbh"><span>'+esc(l||'kode')+'</span><span class="dots"><i></i><i></i><i></i></span><span>Menulis kode, '+L.length+' baris</span></div><pre><code>'+esc(L.slice(-6).join('\n'))+'</code></pre></div>'}
-/* Perbaikan: kode pembuat Word/Excel/PPT di blok javascript biasa otomatis jadi kartu file siap unduh */
-function fixFences(t){
-  if(!t)return t;
-  const nm=((chat()?.title||'').replace(/[^\w\- ]+/g,'').trim().slice(0,30)||'dokumen').replace(/ +/g,'_');
-  const isGen=c=>/new\s+PptxGenJS|docx\.Packer|Packer\.to(Blob|Buffer)|ExcelJS\.Workbook|new\s+ExcelJS|=\s*docx\b/.test(c);
-  const ext=c=>/PptxGenJS/.test(c)?'pptx':/ExcelJS/.test(c)?'xlsx':'docx';
-  const fix=c=>/^\s*\/\/\s*JS\b/.test(c)?c:'// JS\n'+c;
-  t=t.replace(/```(?:javascript|js|node)[ \t]*\n([\s\S]*?)```/g,(m,c)=>isGen(c)?'```file:'+nm+'.'+ext(c)+'\n'+fix(c).replace(/\n$/,'')+'\n```':m);
-  return t.replace(/```(?:javascript|js|node)[ \t]*\n((?:(?!```)[\s\S])*)$/,(m,c)=>isGen(c)?'```file:'+nm+'.'+ext(c)+'\n'+c:m)}
 function md(t,mi,live){t=fixFences(t);const CB=[];let fk=0,bn=0;
   t=t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(_,n,c)=>{GF.push([n.trim(),c.replace(/\n$/,''),mi,fk++]);return '\n\uE000F'+(GF.length-1)+'\uE001\n'}).replace(/```file:([^\n`]*)(?:\n[\s\S]*)?$/,(_,n)=>'\n\uE000W'+n.trim()+'\uE001').replace(/```([\w+#.-]*)\n?([\s\S]*?)```/g,(_,l,c)=>{CB.push(code(l,c,mi+'-'+(bn++)));return '\n\uE000C'+(CB.length-1)+'\uE001\n'}).replace(/```([\w+#.-]*)\n?([\s\S]*)$/,(_,l,c)=>{CB.push(live?liveCode(l,c):code(l,c,mi+'-'+(bn++)));return '\n\uE000C'+(CB.length-1)+'\uE001\n'});
   return blocks(esc(t)).replace(/\uE000C(\d+)\uE001/g,(_,i)=>CB[+i]).replace(/\uE000F(\d+)\uE001/g,(_,i)=>fcard(+i)).replace(/\uE000W([^\uE001]*)\uE001/g,(_,n)=>'<div class="fcard"><div><b>'+esc(n)+'</b><small>Sedang dibuat...</small></div></div>')}
@@ -409,7 +407,7 @@ function renderDash(){stor();
   $('#stats').innerHTML=[['Percakapan',S.chats.length],['Pesan',msgs],['Permintaan API',u.req],['Token (total)',tot.toLocaleString('id-ID')]].map(([l,v])=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
   const ms=Object.entries(u.models),mx=Math.max(1,...ms.map(x=>x[1]));
   $('#byModel').innerHTML=ms.length?ms.map(([m,n])=>`<div class="row"><i title="${esc(m)}">${esc(m)}</i><div class="bar"><div style="width:${n/mx*100}%"></div></div><span>${n}</span></div>`).join(''):'<div class="hint">Belum ada permintaan.</div>'}
-function renderSet(){const c=S.cfg;$('#base').value=c.base;$('#key').value=c.key;$('#sys').value=c.sys;$('#temp').value=c.temp;$('#ctx').value=c.ctx;$('#maxtok').value=c.maxtok;$('#imgm').value=c.imgModel||'';$('#tv').textContent=c.temp;renderModelUI()}
+function renderSet(){const c=S.cfg;$('#base').value=c.base;$('#key').value=c.key;$('#sys').value=c.sys;$('#temp').value=c.temp;$('#imgm').value=c.imgModel||'';$('#tv').textContent=c.temp;renderModelUI()}
 function renderAll(){renderList();renderThread(true);renderDash()}
 function api(path){return S.cfg.base.replace(/\/+$/,'')+path}
 function hdr(){return{'Content-Type':'application/json','Authorization':'Bearer '+S.cfg.key}}
@@ -435,7 +433,7 @@ async function genImage(c,prompt){
   }catch(e){if(e.name==='AbortError')bot.content='(Dihentikan)';else{bot.err=true;bot.content='Gagal membuat gambar. '+(e.message==='Failed to fetch'?'Periksa Base URL, internet, atau CORS.':e.message)}}
   bot.ms=Date.now()-t0;bot.ttft=bot.ms;delete bot.st;ctrl=null;setBusy(false);save();renderAll()}
 async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi model'};c.msgs.push(bot);setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
-  const hist=(S.cfg.ctx>0?c.msgs.slice(0,-1).slice(-S.cfg.ctx):c.msgs.slice(0,-1)).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=m.role==='user'?(m.imgs||[]).filter(Boolean):[],t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...(t?[{type:'text',text:t}]:[]),...im.map(u=>({type:'image_url',image_url:{url:u}}))]:t}}).filter(m=>m.content&&m.content.length);
+  const hist=c.msgs.slice(0,-1).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=m.role==='user'?(m.imgs||[]).filter(Boolean):[],t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...(t?[{type:'text',text:t}]:[]),...im.map(u=>({type:'image_url',image_url:{url:u}}))]:t}}).filter(m=>m.content&&m.content.length);
   while(hist.length&&hist[0].role!=='user')hist.shift();const lu=[...c.msgs].reverse().find(m=>m.role==='user');hist.unshift({role:'system',content:FILE_PROMPT+(lu&&lu.gen?'\n\n'+IMG_PROMPT:'')+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
   let usage=null,used=null;const tried=[];
   for(;;){const m=order().find(x=>!tried.includes(x.id));
@@ -443,7 +441,7 @@ async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi mod
     bot.st=tried.length?'Beralih ke '+m.id:'Sedang berpikir';renderThread();
     tried.push(m.id);
     try{
-      const r=await fetch(api('/chat/completions'),{method:'POST',headers:hdr(),signal:ctrl.signal,body:JSON.stringify({model:m.id,messages:hist,temperature:+S.cfg.temp,...(S.cfg.maxtok>0?{max_tokens:+S.cfg.maxtok}:{}),stream:true,stream_options:{include_usage:true}})});
+      const r=await fetch(api('/chat/completions'),{method:'POST',headers:hdr(),signal:ctrl.signal,body:JSON.stringify({model:m.id,messages:hist,temperature:+S.cfg.temp,stream:true,stream_options:{include_usage:true}})});
       if(!r.ok){const body=await r.text();let msg=body;try{msg=JSON.parse(body).error?.message||body}catch(e){}
         const li=limitInfo(r.status,body,+r.headers.get('retry-after')||0);
         if(li){m.until=li;(bot.notes=bot.notes||[]).push(m.id+' terkena limit ('+String(msg).replace(/\s+/g,' ').slice(0,90)+'). '+untilTxt(m)+'.');save();renderModelUI();toast(m.id+' terkena limit, mencoba model lain...');continue}
@@ -463,7 +461,7 @@ async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi mod
   if(used){const u=S.usage;u.req++;u.models[used]=(u.models[used]||0)+1;u.tin+=usage?.prompt_tokens??Math.ceil(hist.reduce((a,x)=>a+(typeof x.content==='string'?x.content.length:x.content.reduce((y,q)=>y+(q.text?q.text.length:3000),0)),0)/4);u.tout+=usage?.completion_tokens??Math.ceil(bot.content.length/4)}
   ctrl=null;setBusy(false);save();renderAll();renderModelUI();if(matchMedia('(hover:hover)').matches)$('#in').focus()}
 function show(v){document.querySelectorAll('.view').forEach(e=>e.classList.toggle('on',e.id===v));document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.dataset.v===v));if(v==='dash')renderDash();$('#side').classList.remove('open')}
-function readSet(){S.cfg={...S.cfg,base:$('#base').value.trim()||def.cfg.base,key:$('#key').value.trim().replace(/^Bearer\s+/i,'').replace(/^["']|["']$/g,''),sys:$('#sys').value,temp:+$('#temp').value,ctx:$('#ctx').value===''?20:Math.max(0,parseInt($('#ctx').value)||0),maxtok:Math.max(0,parseInt($('#maxtok').value)||0),imgModel:$('#imgm').value.trim()};save()}
+function readSet(){S.cfg={...S.cfg,base:$('#base').value.trim()||def.cfg.base,key:$('#key').value.trim().replace(/^Bearer\s+/i,'').replace(/^["']|["']$/g,''),sys:$('#sys').value,temp:+$('#temp').value,ctx:0,maxtok:0,imgModel:$('#imgm').value.trim()};save()}
 function autosize(){const e=$('#in');e.style.height='auto';e.style.height=Math.min(e.scrollHeight,180)+'px'}
 async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='var(--err)';d.textContent=t};d.style.color='';d.textContent='Menguji koneksi...';
   if(!S.cfg.key)return bad('API key masih kosong.');
@@ -476,7 +474,7 @@ async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='va
     const ids=((await r.json()).data||[]).map(m=>m.id);$('#models').innerHTML=ids.map(i=>`<option value="${esc(i)}">`).join('');
     d.style.color='var(--acc)';d.textContent='Koneksi berhasil. '+ids.length+' model ditemukan.'+(S.cfg.models.some(m=>!ids.includes(m.id))?' Tapi ada nama model di Daftar model yang tidak ada di server, periksa ejaannya.':'');
   }catch(e){bad('Browser tidak bisa menjangkau server ('+e.message+'). Kemungkinan: tidak ada internet, Base URL salah ketik, atau server memblokir akses langsung dari browser (CORS).')}}
-const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, presentasi, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Format: .docx, .xlsx, dan .pptx WAJIB ditulis sebagai kode JavaScript pembuat file, dengan baris pertama persis // JS. Kode itu adalah isi fungsi async yang boleh memakai library global PptxGenJS (v3), docx (v8: docx.Document, docx.Packer, docx.Paragraph, docx.TextRun, docx.Table, docx.HeadingLevel, dan seterusnya), serta ExcelJS (v4), dan harus diakhiri return Blob. Contoh: return await docx.Packer.toBlob(doc); return await pres.write({outputType:"blob"}); return new Blob([await wb.xlsx.writeBuffer()]). Rancang seperti desainer profesional: palet warna konsisten, pilihan font, judul, tabel berformat, grafik (addChart di pptx), sel berwarna, rumus, lebar kolom, freeze pane, header dan nomor halaman, sampul dan struktur yang jelas. Tidak ada akses internet, jadi jangan memakai gambar dari URL. Isi harus lengkap, benar, dan memakai bahasa pengguna. File .pdf ditulis dengan markdown (# judul, ## subjudul, - poin, **tebal**, tabel dengan tanda |); .html satu halaman lengkap dengan CSS dan JS di dalamnya; serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas); pengguna bisa mengunduhnya sebagai PNG atau JPG dari editor. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama. Setelah blok file, beri penjelasan singkat. ATURAN PENTING: untuk permintaan Word, Excel, atau PowerPoint, JANGAN PERNAH menulis kode di blok javascript biasa. Selalu pakai blok file:nama.docx (atau .xlsx / .pptx) dengan baris pertama // JS. JANGAN menyuruh pengguna menyalin kode, menjalankan kode, atau membuka editor: aplikasi otomatis menampilkan tombol Unduh. Setelah blok file cukup tulis 2-3 kalimat ringkasan isi, tanpa petunjuk teknis. Jaga kode tetap ringkas (di bawah 250 baris), jangan pakai TableOfContents atau fitur rumit, dan jangan memakai require, import, atau fs.';
+const FILE_PROMPT='Kamu bisa membuat file untuk pengguna, dan aplikasi ini otomatis mengubah jawabanmu menjadi tombol Unduh. Jika pengguna meminta file (dokumen, laporan, surat, tabel, presentasi, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. ATURAN PALING PENTING untuk Word (.docx), Excel (.xlsx), dan PowerPoint (.pptx): tulis sebagai kode JavaScript pembuat file di dalam blok file:nama.docx (atau .xlsx / .pptx) dengan baris pertama persis // JS. JANGAN PERNAH menaruh kode itu di blok javascript biasa, JANGAN PERNAH menyuruh pengguna menyalin kode, menjalankan kode, membuka editor, memberi nama file .js, atau menginstal apa pun, dan JANGAN menjelaskan cara kerja kodenya. Pengguna cukup menekan tombol Unduh. Kode itu adalah isi fungsi async yang memakai library global PptxGenJS (v3), docx (v8: docx.Document, docx.Packer, docx.Paragraph, docx.TextRun, docx.Table, docx.TableRow, docx.TableCell, docx.HeadingLevel, docx.AlignmentType, docx.WidthType, docx.ShadingType, docx.Footer, docx.PageNumber), serta ExcelJS (v4), dan harus diakhiri return Blob. Contoh: return await docx.Packer.toBlob(doc); return await pres.write({outputType:"blob"}); return new Blob([await wb.xlsx.writeBuffer()]). Jangan memakai import atau require, dan jangan memakai fitur yang rumit seperti TableOfContents. Jaga kode ringkas dan pasti jalan. Rancang seperti desainer profesional: palet warna konsisten, pilihan font, judul, tabel berformat, grafik (addChart di pptx), sel berwarna, rumus, lebar kolom, freeze pane, header dan nomor halaman, sampul dan struktur yang jelas. Tidak ada akses internet, jadi jangan memakai gambar dari URL. Isi harus lengkap, benar, dan memakai bahasa pengguna. Setelah blok file, tulis hanya 2 sampai 3 kalimat ringkasan isi file, tanpa petunjuk teknis. File .pdf ditulis dengan markdown (# judul, ## subjudul, - poin, **tebal**, tabel dengan tanda |); .html satu halaman lengkap dengan CSS dan JS di dalamnya; serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas); pengguna bisa mengunduhnya sebagai PNG atau JPG dari editor. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama.';
 const MIME={csv:'text/csv;charset=utf-8',json:'application/json',html:'text/html',md:'text/markdown'};
 function xe(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
 function line(l){let x=l.replace(/\*\*/g,''),lv=0;const h=x.match(/^(#{1,3})\s+(.*)/);if(h){x=h[2];lv=h[1].length}else if(/^\s*[-*]\s+/.test(x))x='\u2022  '+x.replace(/^\s*[-*]\s+/,'');return{x,lv}}
@@ -542,16 +540,16 @@ const GEN_LIBS='<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index
 function runGen(code){return new Promise((res,rej)=>{const id=Math.random().toString(36).slice(2),f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts');f.style.display='none';
   const done=(fn,v)=>{clearTimeout(tm);removeEventListener('message',h);f.remove();fn(v)},fail=m=>{const er=new Error(m);er.gen=1;done(rej,er)};
   const h=e=>{const d=e.data;if(e.source!==f.contentWindow||!d||d.id!==id)return;d.err?fail(d.err):done(res,d.blob)};
-  const tm=setTimeout(()=>fail('waktu habis (90 detik). Cek internet, library dimuat dari jsdelivr'),90000);addEventListener('message',h);
+  const tm=setTimeout(()=>fail('waktu habis (90 detik)'),90000);addEventListener('message',h);
   f.srcdoc=GEN_LIBS+'<script>(async()=>{const id='+JSON.stringify(id)+';try{const fn=async()=>{'+code.replace(/<\/script/gi,'<\\/script')+'\n};let r=await fn();if(r instanceof ArrayBuffer||ArrayBuffer.isView(r))r=new Blob([r]);if(!(r instanceof Blob))throw new Error("kode harus return Blob");parent.postMessage({id:id,blob:r},"*")}catch(e){parent.postMessage({id:id,err:String(e&&e.message||e)},"*")}})()<\/script>';
   document.body.appendChild(f)})}
 async function copyText(c){try{await navigator.clipboard.writeText(c)}catch(e){const a=document.createElement('textarea');a.value=c;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(x){}a.remove()}}
 async function dl(i){const g=GF[i];if(g)return dlText(g[0],g[1])}
 async function dlText(name,c){name=name.replace(/\.(ppt|doc|xls)$/i,m=>({'.ppt':'.pptx','.doc':'.docx','.xls':'.xlsx'}[m.toLowerCase()]));const ext=name.split('.').pop().toLowerCase();let blob;
-  try{if(/^\s*\/\/\s*JS\b/.test(c)&&['docx','xlsx','pptx'].includes(ext)){toast('Membuat file...');blob=await runGen(c)}else if(ext==='docx')blob=await mkDocx(c);else if(ext==='pdf')blob=mkPdf(c);else if(ext==='xlsx')blob=mkXlsx(c);else if(ext==='pptx')blob=await mkPptx(c);else blob=new Blob([ext==='csv'?'\uFEFF'+c:c],{type:MIME[ext]||'text/plain;charset=utf-8'})}
-  catch(e){if(e.gen){toast('Kode file error: '+e.message.slice(0,110)+'. Minta AI memperbaikinya.');return}toast(/JSZip|jspdf|XLSX|PptxGenJS/.test(e.message||'')?'Pembuat file belum termuat. Cek internet lalu muat ulang halaman.':'Gagal membuat file');return}
+  try{if(['docx','xlsx','pptx'].includes(ext)&&(/^\s*\/\/\s*JS\b/.test(c)||isGenCode(c))){toast('Membuat file...');blob=await runGen(c.replace(/^\s*```[\w]*\n?/,'').replace(/```\s*$/,''))}else if(ext==='docx')blob=await mkDocx(c);else if(ext==='pdf')blob=mkPdf(c);else if(ext==='xlsx')blob=mkXlsx(c);else if(ext==='pptx')blob=await mkPptx(c);else blob=new Blob([ext==='csv'?'\uFEFF'+c:c],{type:MIME[ext]||'text/plain;charset=utf-8'})}
+  catch(e){if(e.gen){toast('Kode file error: '+e.message.slice(0,110)+'. Tekan Ulangi jawaban atau minta AI memperbaikinya.');return}toast(/JSZip|jspdf|XLSX|PptxGenJS/.test(e.message||'')?'Pembuat file belum termuat. Cek internet lalu muat ulang halaman.':'Gagal membuat file');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[\\/:*?"<>|]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('File diunduh: '+name)}
-let pend=[],pendF=[];const MAX=60000,MAX2=150000;let GEN=false,PN=0;
+let pend=[],pendF=[];const MAX=200000,MAX2=300000,MAXA=12;let GEN=false,PN=0;
 function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.8))};im.onerror=()=>{URL.revokeObjectURL(u);rej()};im.src=u})}
 function fileObj(name,t){t=(t||'').trim();if(!t)throw new Error('kosong');return{name,text:t.length>MAX?t.slice(0,MAX)+'\n[...dipotong, file terlalu panjang]':t}}
 let pdfReady;
@@ -563,7 +561,7 @@ async function readPdf(f){const lib=await pdfLib(),doc=await lib.getDocument({da
     toast('PDF ini hasil scan tanpa teks: '+n+' halaman pertama dilampirkan sebagai gambar');return}
   pendF.push(fileObj(f.name,out))}
 async function addFiles(fs){for(const f of [...fs]){const n=f.name.toLowerCase();
-  if(pend.length+pendF.length>=6){toast('Maksimal 6 lampiran per pesan');break}
+  if(pend.length+pendF.length>=MAXA){toast('Maksimal '+MAXA+' lampiran per pesan');break}
   try{
     if(f.type.startsWith('image/'))pend.push(await shrink(f));
     else if(n.endsWith('.pdf'))await readPdf(f);
@@ -611,7 +609,7 @@ $('#in').addEventListener('paste',e=>{const f=[...e.clipboardData.files];if(f.so
   const t=e.clipboardData.getData('text');if(t&&(t.length>1200||t.split('\n').length>20)){e.preventDefault();addPasted(t)}});
 document.addEventListener('dragover',e=>e.preventDefault());
 document.addEventListener('drop',e=>{e.preventDefault();show('chat');addFiles(e.dataTransfer.files)});
-function fixModels(){const c=S.cfg;if(!Array.isArray(c.models)||!c.models.length)c.models=[{id:c.model||'claude-opus-5'}];if(!c.models.some(m=>m.id===c.model))c.model=c.models[0].id}
+function fixModels(){const c=S.cfg;c.ctx=0;c.maxtok=0;if(!Array.isArray(c.models)||!c.models.length)c.models=[{id:c.model||'claude-opus-5'}];if(!c.models.some(m=>m.id===c.model))c.model=c.models[0].id}
 const blocked=m=>!!m.until&&m.until>Date.now();
 function order(){const l=S.cfg.models,i=Math.max(0,l.findIndex(m=>m.id===S.cfg.model));return[...l.slice(i),...l.slice(0,i)].filter(m=>!blocked(m))}
 function midnightWIB(){const d=new Date(Date.now()+7*36e5);d.setUTCHours(24,0,0,0);return d.getTime()-7*36e5}
@@ -675,7 +673,7 @@ function exportSvg(mime,ext){if(!ED)return;const c=$('#esrc').value,nm=ED.name,v
 $('#epng').onclick=()=>exportSvg('image/png','png');
 $('#ejpg').onclick=()=>exportSvg('image/jpeg','jpg');
 const IMG_PROMPT='MODE GAMBAR AKTIF: pengguna ingin dibuatkan gambar. Fokus hanya pada gambar: tulis satu file .svg lengkap (elemen svg dengan atribut viewBox, komposisi rapi, warna dan gradien yang menarik, teks seperlunya) di dalam blok file. Jangan membuat kode atau file lain. Jika pengguna melampirkan file svg atau minta mengubah gambar sebelumnya, tulis ulang svg lengkap dengan nama file yang sama. Penjelasan cukup satu atau dua kalimat.';
-function addPasted(t){if(pend.length+pendF.length>=6){toast('Maksimal 6 lampiran per pesan');return}t=t.trim();const ty=/^<!doctype html|^<html/i.test(t)?'html':/^<svg/i.test(t)?'svg':'txt';
+function addPasted(t){if(pend.length+pendF.length>=MAXA){toast('Maksimal '+MAXA+' lampiran per pesan');return}t=t.trim();const ty=/^<!doctype html|^<html/i.test(t)?'html':/^<svg/i.test(t)?'svg':'txt';
   pendF.push({name:'tempelan'+(++PN)+'.'+ty,text:t.length>MAX2?t.slice(0,MAX2)+'\n[...dipotong, teks terlalu panjang]':t,pasted:true});renderPrev();toast('Teks panjang dijadikan lampiran. Klik pensil untuk mengedit.')}
 function openPendEditor(i){const f=pendF[i];if(!f)return;ED={name:f.name,pf:i,src:f.text};$('#et').textContent=f.name;$('#esrc').value=f.text;$('.ebody').classList.toggle('nopv',!PV(f.name));$('#epng').hidden=$('#ejpg').hidden=!/\.svg$/i.test(f.name);$('#ed').textContent='';$('#editor').hidden=false;edPrev();$('#esrc').focus()}
 const DK='goruku.draft';
@@ -710,7 +708,7 @@ $('#bgimgf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{BGI=a
 $('#rot').onclick=()=>{ROT=(ROT+1)%4;drawImg()};$('#flip').onclick=()=>{FLP=!FLP;drawImg()};
 $('#frs').onclick=()=>{['fbr','fco','fgr'].forEach(i=>$('#'+i).value=0);drawImg()};
 $('#bgdl').onclick=()=>{const cv=$('#bgc'),f=$('#fmt').value,mime=f==='png'?'image/png':f==='webp'?'image/webp':'image/jpeg';let src=cv;if(f==='jpg'){src=document.createElement('canvas');src.width=cv.width;src.height=cv.height;const x=src.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,src.width,src.height);x.drawImage(cv,0,0)}src.toBlob(b=>b?bgSave(b,'gambar.'+f):toast('Format ini tidak didukung browser'),mime,0.92)};
-const VER='2026-10-16.6';
+const VER='2026-10-17.1';
 async function hardRefresh(){try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()))}catch(e){}try{await flush()}catch(e){}location.replace(location.pathname+'?r='+Date.now())}
 async function chkVer(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const m=(await r.text()).match(new RegExp("const VER"+"='([^']+)'"));if(m&&m[1]!==VER)$('#upd').hidden=false}catch(e){}}
 $('#ver').textContent=VER;$('#refr').onclick=hardRefresh;$('#updGo').onclick=hardRefresh;
