@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>Goruku AI</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='black'/%3E%3Cpath d='M21.8 11.2A7.5 7.5 0 1 0 23.5 16H16' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <script>(function(){var t;try{t=localStorage.getItem('goruku.theme')}catch(e){}if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t})()</script>
@@ -128,6 +129,8 @@ label{display:block;font-weight:600;margin:14px 0 5px}
 .btn{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:500}.btn:hover{background:var(--raise)}
 .btn.p{background:var(--btn);color:var(--btn-ink);border-color:transparent;font-weight:600}
 .chk{background:repeating-conic-gradient(#ccc 0 25%,#fff 0 50%) 50%/20px 20px;border-radius:10px;border:1px solid var(--line);padding:6px}.chk img,.pvw img{max-width:100%;max-height:340px;display:block;margin:0 auto}.pvw{border:1px solid var(--line);border-radius:10px;padding:6px;background:var(--bg)}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}@media(max-width:760px){.two{grid-template-columns:1fr}}
+.lim.ok{border-color:var(--acc);color:var(--acc)}
+.card input[type=color]{width:56px;height:42px;padding:2px}.card input[type=range]{padding:0;border:0}.card input[type=file]{width:auto;max-width:100%}#bgc{display:block;max-width:100%;max-height:60vh;margin:0 auto}
 .keyrow{display:flex;gap:8px}.keyrow input{flex:1}.keyrow .btn{white-space:nowrap}
 .mrow{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.mrow div{flex:1;min-width:0}.mrow b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mrow small{color:var(--mute)}.mrow small.lim{color:var(--err)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--btn);color:var(--btn-ink);padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}#toast.on{opacity:1}
@@ -183,7 +186,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
 
   <section class="view on" id="chat">
     <div id="msgs"><div class="wrap" id="thread"></div></div>
-    <div id="bar"><div class="lim" id="lim" hidden role="status"></div><button class="ibtn" id="down" hidden aria-label="Ke pesan terbaru"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button><div class="wrap" id="comp">
+    <div id="bar"><div class="lim" id="lim" hidden role="status"></div><div class="lim ok" id="upd" hidden role="status"><span>Versi baru aplikasi tersedia.</span><button class="btn" id="updGo">Muat ulang</button></div><button class="ibtn" id="down" hidden aria-label="Ke pesan terbaru"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button><div class="wrap" id="comp">
       <div id="prev"></div>
       <textarea id="in" rows="1" placeholder="Tulis pesan. Enter untuk kirim, Shift+Enter untuk baris baru" aria-label="Pesan"></textarea>
       <div class="tools">
@@ -206,11 +209,29 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
 
   <section class="view" id="img"><div class="pad"><div class="wrap">
     <h2>Alat Gambar</h2>
-    <div class="card"><b>Hapus latar belakang</b>
-      <div class="hint">Berjalan di browser kamu, gambar tidak dikirim ke server mana pun. Pertama kali memakai, model AI (puluhan MB) diunduh dulu, setelah itu lebih cepat.</div>
-      <div class="btns"><input type="file" id="bgf" accept="image/png,image/jpeg,image/webp"><button class="btn p" id="bgrun" disabled>Hapus latar</button></div>
+    <div class="card"><b>Edit gambar</b>
+      <div class="hint">Semua diproses di browser kamu, gambar tidak dikirim ke server. Untuk mengganti latar, tekan Hapus latar dulu. Pertama kali, model AI (puluhan MB) diunduh dulu.</div>
+      <div class="btns"><input type="file" id="bgf" accept="image/*"><button class="btn p" id="bgrun" disabled>Hapus latar</button><button class="btn" id="bgorig">Pakai gambar asli</button></div>
       <div class="hint" id="bgs" role="status" style="font-size:14px"></div>
-      <div class="two"><div class="pvw"><img id="bgo" alt="Gambar asli" hidden></div><div id="bgrw" hidden><div class="chk"><img id="bgr" alt="Hasil tanpa latar"></div><div class="btns"><button class="btn p" id="bgpng">Unduh PNG transparan</button><button class="btn" id="bgjpg">Unduh JPG latar putih</button></div></div></div>
+      <div id="edw" hidden>
+        <div id="bgcw" class="chk" style="margin-top:12px"><canvas id="bgc"></canvas></div>
+        <div class="two">
+          <div>
+            <label for="bgm">Latar belakang</label>
+            <select id="bgm"><option value="none">Transparan</option><option value="color">Warna</option><option value="grad">Gradien</option><option value="img">Gambar sendiri</option></select>
+            <div class="btns"><input type="color" id="bgcol" value="#ffffff" aria-label="Warna latar"><input type="color" id="bgcol2" value="#4f6bed" aria-label="Warna kedua" hidden><input type="file" id="bgimgf" accept="image/*" hidden></div>
+            <label for="imw">Lebar (px)</label><input id="imw" type="number" min="16" max="6000">
+            <div class="btns"><button class="btn" id="rot">Putar 90&deg;</button><button class="btn" id="flip">Balik</button></div>
+          </div>
+          <div>
+            <label for="fbr">Kecerahan</label><input type="range" id="fbr" min="-100" max="100" value="0">
+            <label for="fco">Kontras</label><input type="range" id="fco" min="-100" max="100" value="0">
+            <label for="fgr">Hitam putih</label><input type="range" id="fgr" min="0" max="100" value="0">
+            <label for="fmt">Format unduhan</label><select id="fmt"><option value="png">PNG (bisa transparan)</option><option value="jpg">JPG (latar putih jika transparan)</option><option value="webp">WebP</option></select>
+            <div class="btns"><button class="btn p" id="bgdl">Unduh</button><button class="btn" id="frs">Reset efek</button></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div></div></section>
 
@@ -255,6 +276,10 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
       <div class="hint">Tambahkan beberapa model. Model yang terkena limit otomatis dilewati dan pesan dikirim lewat model berikutnya di daftar.</div>
       <div id="mlist"></div><datalist id="models"></datalist>
       <div class="btns"><input id="newm" list="models" placeholder="Nama model, contoh: claude-opus-5" style="flex:1;min-width:180px"><button class="btn p" id="addm">Tambah</button></div>
+    </div>
+    <div class="card"><b>Versi aplikasi</b>
+      <div class="hint">Versi terpasang: <span id="ver"></span>. Jika tampilan di HP berbeda dengan di laptop, tekan tombol ini. Percakapan dan pengaturanmu tidak dihapus.</div>
+      <div class="btns"><button class="btn p" id="refr">Perbarui aplikasi (bersihkan cache)</button></div>
     </div>
     <div class="card"><b>Cadangan progres</b>
       <div class="hint">Semua percakapan dan pengaturan (tanpa API key) bisa diunduh lalu dipulihkan kapan saja.</div>
@@ -652,18 +677,37 @@ $('#q').addEventListener('input',renderList);
 $('#msgs').addEventListener('scroll',updDown);
 $('#down').onclick=()=>$('#msgs').scrollTo({top:$('#msgs').scrollHeight,behavior:'smooth'});
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#side').classList.add('open');$('#q').focus()}});
-let BGL,BGB=null;
+let BGL,BGB=null,ORI=null,FG=null,BGI=null,ROT=0,FLP=false;
+const gi=u=>new Promise((r,j)=>{const i=new Image();i.onload=()=>r(i);i.onerror=j;i.src=u});
 function bgSave(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
-$('#bgf').onchange=e=>{const f=e.target.files[0];if(!f)return;const o=$('#bgo');o.src=URL.createObjectURL(f);o.hidden=false;$('#bgrw').hidden=true;BGB=null;$('#bgrun').disabled=false;$('#bgs').textContent=''};
+function drawImg(){if(!FG)return;const w=Math.max(16,Math.min(6000,+$('#imw').value||FG.naturalWidth)),sc=w/FG.naturalWidth,fw=Math.round(FG.naturalWidth*sc),fh=Math.round(FG.naturalHeight*sc),sw=ROT%2,cw=sw?fh:fw,ch=sw?fw:fh,cv=$('#bgc');cv.width=cw;cv.height=ch;const x=cv.getContext('2d'),m=$('#bgm').value;
+  $('#bgcol').hidden=m==='none'||m==='img';$('#bgcol2').hidden=m!=='grad';$('#bgimgf').hidden=m!=='img';$('#bgcw').classList.toggle('chk',m==='none');
+  if(m==='color'){x.fillStyle=$('#bgcol').value;x.fillRect(0,0,cw,ch)}
+  else if(m==='grad'){const g=x.createLinearGradient(0,0,cw,ch);g.addColorStop(0,$('#bgcol').value);g.addColorStop(1,$('#bgcol2').value);x.fillStyle=g;x.fillRect(0,0,cw,ch)}
+  else if(m==='img'&&BGI){const k=Math.max(cw/BGI.naturalWidth,ch/BGI.naturalHeight),iw=BGI.naturalWidth*k,ih=BGI.naturalHeight*k;x.drawImage(BGI,(cw-iw)/2,(ch-ih)/2,iw,ih)}
+  x.save();x.translate(cw/2,ch/2);x.rotate(ROT*Math.PI/2);if(FLP)x.scale(-1,1);x.drawImage(FG,-fw/2,-fh/2,fw,fh);x.restore();
+  const br=+$('#fbr').value*1.28,co=+$('#fco').value*2,gr=+$('#fgr').value;
+  if(br||co||gr){const d=x.getImageData(0,0,cw,ch),a=d.data,cf=(259*(co+255))/(255*(259-co));for(let i=0;i<a.length;i+=4){let r=a[i],g=a[i+1],b=a[i+2];if(gr){const l=.299*r+.587*g+.114*b;r+=(l-r)*gr/100;g+=(l-g)*gr/100;b+=(l-b)*gr/100}a[i]=cf*(r+br-128)+128;a[i+1]=cf*(g+br-128)+128;a[i+2]=cf*(b+br-128)+128}x.putImageData(d,0,0)}}
+async function setFG(u){try{FG=await gi(u);drawImg()}catch(e){toast('Gambar tidak bisa dibaca')}}
+$('#bgf').onchange=async e=>{const f=e.target.files[0];if(!f)return;BGB=null;ROT=0;FLP=false;ORI=URL.createObjectURL(f);await setFG(ORI);if(!FG)return;$('#imw').value=Math.min(FG.naturalWidth,2000);drawImg();$('#edw').hidden=false;$('#bgrun').disabled=false;$('#bgs').textContent=''};
+$('#bgorig').onclick=()=>{if(ORI)setFG(ORI)};
 $('#bgrun').onclick=async()=>{const f=$('#bgf').files[0];if(!f)return;const st=$('#bgs'),b=$('#bgrun');b.disabled=true;st.style.color='';st.textContent='Memuat mesin AI...';
   try{BGL=BGL||await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm');
     BGB=await BGL.removeBackground(f,{progress:(k,c,t)=>{st.textContent=(/fetch/.test(k)?'Mengunduh model':'Memproses gambar')+': '+(t?Math.round(c/t*100):0)+'%'}});
-    $('#bgr').src=URL.createObjectURL(BGB);$('#bgrw').hidden=false;st.textContent='Selesai.'}
+    await setFG(URL.createObjectURL(BGB));st.textContent='Latar dihapus. Pilih latar baru di bawah.'}
   catch(e){st.style.color='var(--err)';st.textContent='Gagal: '+(e.message||e)+'. Cek koneksi internet, lalu coba lagi.'}
   b.disabled=false};
-$('#bgpng').onclick=()=>BGB&&bgSave(BGB,'tanpa-latar.png');
-$('#bgjpg').onclick=()=>{if(!BGB)return;const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0);c.toBlob(b=>bgSave(b,'tanpa-latar.jpg'),'image/jpeg',0.92)};im.src=URL.createObjectURL(BGB)};
-boot();
+document.querySelectorAll('#edw input,#edw select').forEach(e=>e.addEventListener('input',()=>{if(e.id!=='bgimgf')drawImg()}));
+$('#bgimgf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{BGI=await gi(URL.createObjectURL(f));drawImg()}catch(x){toast('Gambar latar tidak bisa dibaca')}};
+$('#rot').onclick=()=>{ROT=(ROT+1)%4;drawImg()};$('#flip').onclick=()=>{FLP=!FLP;drawImg()};
+$('#frs').onclick=()=>{['fbr','fco','fgr'].forEach(i=>$('#'+i).value=0);drawImg()};
+$('#bgdl').onclick=()=>{const cv=$('#bgc'),f=$('#fmt').value,mime=f==='png'?'image/png':f==='webp'?'image/webp':'image/jpeg';let src=cv;if(f==='jpg'){src=document.createElement('canvas');src.width=cv.width;src.height=cv.height;const x=src.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,src.width,src.height);x.drawImage(cv,0,0)}src.toBlob(b=>b?bgSave(b,'gambar.'+f):toast('Format ini tidak didukung browser'),mime,0.92)};
+const VER='2026-10-16.5';
+async function hardRefresh(){try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()))}catch(e){}try{await flush()}catch(e){}location.replace(location.pathname+'?r='+Date.now())}
+async function chkVer(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const m=(await r.text()).match(new RegExp("const VER"+"='([^']+)'"));if(m&&m[1]!==VER)$('#upd').hidden=false}catch(e){}}
+$('#ver').textContent=VER;$('#refr').onclick=hardRefresh;$('#updGo').onclick=hardRefresh;
+addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')chkVer()});
+boot();chkVer();
 try{const d=localStorage.getItem(DK);if(d){$('#in').value=d;autosize()}}catch(e){}
 </script>
 </body>
