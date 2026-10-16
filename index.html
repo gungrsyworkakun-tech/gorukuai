@@ -254,7 +254,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
       <div class="hint">Disimpan di browser ini saja, tidak ikut ke GitHub. Jangan isi di komputer umum.</div>
       <label for="sys">Instruksi sistem tambahan (opsional)</label>
       <textarea id="sys" rows="3" placeholder="Contoh: Jawab dalam bahasa Indonesia yang ringkas."></textarea>
-      <div class="hint">Aturan pembuatan file Word, Excel, dan PPT sudah otomatis ikut terkirim, tidak perlu diisi di sini.</div>
+      <div class="hint">Aturan pembuatan file Word, Excel, PPT, dan membaca gambar sudah otomatis ikut terkirim, tidak perlu diisi di sini.</div>
       <label for="temp">Kreativitas (temperature): <span id="tv"></span></label>
       <input id="temp" type="range" min="0" max="2" step="0.1">
       <label for="imgm">Model gambar (opsional)</label>
@@ -264,6 +264,7 @@ nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .s
         <button class="btn p" id="saveSet">Simpan pengaturan</button>
         <button class="btn" id="loadModels">Muat daftar model</button>
         <button class="btn" id="test">Tes koneksi</button>
+        <button class="btn" id="testImg">Tes baca gambar</button>
       </div>
       <div class="hint" id="diag" role="status" style="margin-top:12px;font-size:14px"></div>
     </div>
@@ -432,20 +433,26 @@ async function genImage(c,prompt){
     bot.model=S.cfg.imgModel;S.usage.req++;S.usage.models[bot.model]=(S.usage.models[bot.model]||0)+1;
   }catch(e){if(e.name==='AbortError')bot.content='(Dihentikan)';else{bot.err=true;bot.content='Gagal membuat gambar. '+(e.message==='Failed to fetch'?'Periksa Base URL, internet, atau CORS.':e.message)}}
   bot.ms=Date.now()-t0;bot.ttft=bot.ms;delete bot.st;ctrl=null;setBusy(false);save();renderAll()}
+/* ===== membaca gambar (vision) ===== */
+const hasImgs=h=>h.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==='image_url'));
+const toAnthropicImgs=h=>h.map(m=>Array.isArray(m.content)?{...m,content:m.content.map(p=>p.type==='image_url'?{type:'image',source:{type:'base64',media_type:(p.image_url.url.match(/^data:([^;]+)/)||[])[1]||'image/jpeg',data:p.image_url.url.split(',')[1]}}:p)}:m);
+function trimImgs(h,keep){let n=0;for(let i=h.length-1;i>=0;i--){const m=h[i];if(!Array.isArray(m.content)||!m.content.some(p=>p.type==='image_url'))continue;n++;if(n>keep)m.content=m.content.filter(p=>p.type!=='image_url').concat([{type:'text',text:'[gambar sebelumnya tidak dikirim ulang]'}])}return h}
+const chatReq=(model,messages,stream,signal)=>fetch(api('/chat/completions'),{method:'POST',headers:hdr(),signal,body:JSON.stringify({model,messages,temperature:+S.cfg.temp,...(stream?{stream:true,stream_options:{include_usage:true}}:{})})});
 async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi model'};c.msgs.push(bot);setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
-  const hist=c.msgs.slice(0,-1).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=m.role==='user'?(m.imgs||[]).filter(Boolean):[],t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...(t?[{type:'text',text:t}]:[]),...im.map(u=>({type:'image_url',image_url:{url:u}}))]:t}}).filter(m=>m.content&&m.content.length);
-  while(hist.length&&hist[0].role!=='user')hist.shift();const lu=[...c.msgs].reverse().find(m=>m.role==='user');hist.unshift({role:'system',content:FILE_PROMPT+(lu&&lu.gen?'\n\n'+IMG_PROMPT:'')+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
+  const hist=c.msgs.slice(0,-1).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=m.role==='user'?(m.imgs||[]).filter(Boolean):[],t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...im.map(u=>({type:'image_url',image_url:{url:u}})),{type:'text',text:t||'Tolong baca dan jelaskan gambar ini.'}]:t}}).filter(m=>m.content&&m.content.length);
+  while(hist.length&&hist[0].role!=='user')hist.shift();trimImgs(hist,3);const lu=[...c.msgs].reverse().find(m=>m.role==='user');hist.unshift({role:'system',content:FILE_PROMPT+VISION_NOTE+(lu&&lu.gen?'\n\n'+IMG_PROMPT:'')+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
   let usage=null,used=null;const tried=[];
   for(;;){const m=order().find(x=>!tried.includes(x.id));
     if(!m){if(!bot.content){bot.content='**Semua model sedang limit.**\n\n'+S.cfg.models.map(x=>'- '+x.id+': '+untilTxt(x)).join('\n')+'\n\nTambahkan model lain di Pengaturan, atau tekan Ulangi jawaban setelah waktu di atas.';bot.err=true}break}
     bot.st=tried.length?'Beralih ke '+m.id:'Sedang berpikir';renderThread();
     tried.push(m.id);
     try{
-      const r=await fetch(api('/chat/completions'),{method:'POST',headers:hdr(),signal:ctrl.signal,body:JSON.stringify({model:m.id,messages:hist,temperature:+S.cfg.temp,stream:true,stream_options:{include_usage:true}})});
+      let r=await chatReq(m.id,hist,true,ctrl.signal);
+      if(!r.ok&&[400,415,422].includes(r.status)&&hasImgs(hist))r=await chatReq(m.id,toAnthropicImgs(hist),true,ctrl.signal);
       if(!r.ok){const body=await r.text();let msg=body;try{msg=JSON.parse(body).error?.message||body}catch(e){}
         const li=limitInfo(r.status,body,+r.headers.get('retry-after')||0);
         if(li){m.until=li;(bot.notes=bot.notes||[]).push(m.id+' terkena limit ('+String(msg).replace(/\s+/g,' ').slice(0,90)+'). '+untilTxt(m)+'.');save();renderModelUI();toast(m.id+' terkena limit, mencoba model lain...');continue}
-        throw new Error('Status '+r.status+': '+msg.slice(0,300))}
+        throw new Error('Status '+r.status+': '+String(msg).slice(0,300)+(hasImgs(hist)?' | Jika pesan ini berisi gambar, model "'+m.id+'" mungkin tidak mendukung gambar. Tekan "Tes baca gambar" di Pengaturan atau pilih model lain.':''))}
       used=m.id;bot.model=m.id;
       const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
       for(;;){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop();
@@ -474,6 +481,24 @@ async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='va
     const ids=((await r.json()).data||[]).map(m=>m.id);$('#models').innerHTML=ids.map(i=>`<option value="${esc(i)}">`).join('');
     d.style.color='var(--acc)';d.textContent='Koneksi berhasil. '+ids.length+' model ditemukan.'+(S.cfg.models.some(m=>!ids.includes(m.id))?' Tapi ada nama model di Daftar model yang tidak ada di server, periksa ejaannya.':'');
   }catch(e){bad('Browser tidak bisa menjangkau server ('+e.message+'). Kemungkinan: tidak ada internet, Base URL salah ketik, atau server memblokir akses langsung dari browser (CORS).')}}
+$('#testImg').onclick=async()=>{
+  readSet();const d=$('#diag');d.style.color='';
+  if(!S.cfg.key){d.style.color='var(--err)';d.textContent='API key masih kosong.';return}
+  fixModels();const m=order()[0];
+  if(!m){d.style.color='var(--err)';d.textContent='Semua model sedang limit.';return}
+  d.textContent='Menguji baca gambar dengan '+m.id+'...';
+  const c=document.createElement('canvas');c.width=360;c.height=120;
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,360,120);x.fillStyle='#000';x.font='bold 48px sans-serif';x.fillText('KODE 4827',20,75);
+  let msgs=[{role:'user',content:[{type:'image_url',image_url:{url:c.toDataURL('image/jpeg',0.9)}},{type:'text',text:'Tulis persis teks yang tertulis di gambar ini.'}]}],fmt='image_url';
+  try{
+    let r=await chatReq(m.id,msgs,false);
+    if(!r.ok&&[400,415,422].includes(r.status)){msgs=toAnthropicImgs(msgs);fmt='image (gaya Anthropic)';r=await chatReq(m.id,msgs,false)}
+    if(!r.ok)throw new Error('Status '+r.status+': '+(await r.text()).slice(0,200));
+    const t=(await r.json()).choices?.[0]?.message?.content||'';
+    if(/4827/.test(t)){d.style.color='var(--acc)';d.textContent='Berhasil: '+m.id+' bisa membaca gambar (format '+fmt+'). Jawaban: '+t.slice(0,80)}
+    else{d.style.color='var(--err)';d.textContent='Model '+m.id+' tidak membaca gambar. Jawabannya: "'+t.slice(0,150)+'". Tambahkan dan pilih model lain yang mendukung gambar di Daftar model.'}
+  }catch(e){d.style.color='var(--err)';d.textContent='Gagal: '+(e.message==='Failed to fetch'?'periksa Base URL, internet, atau CORS.':e.message)}};
+const VISION_NOTE=' Pengguna bisa melampirkan gambar dan tangkapan layar. Kamu BISA melihat dan membaca gambar yang dilampirkan di pesan, jadi jangan pernah bilang tidak bisa melihat gambar. Jelaskan atau salin isi gambar sesuai permintaan, termasuk teks di dalamnya.';
 const FILE_PROMPT='Kamu bisa membuat file untuk pengguna, dan aplikasi ini otomatis mengubah jawabanmu menjadi tombol Unduh. Jika pengguna meminta file (dokumen, laporan, surat, tabel, presentasi, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. ATURAN PALING PENTING untuk Word (.docx), Excel (.xlsx), dan PowerPoint (.pptx): tulis sebagai kode JavaScript pembuat file di dalam blok file:nama.docx (atau .xlsx / .pptx) dengan baris pertama persis // JS. JANGAN PERNAH menaruh kode itu di blok javascript biasa, JANGAN PERNAH menyuruh pengguna menyalin kode, menjalankan kode, membuka editor, memberi nama file .js, atau menginstal apa pun, dan JANGAN menjelaskan cara kerja kodenya. Pengguna cukup menekan tombol Unduh. Kode itu adalah isi fungsi async yang memakai library global PptxGenJS (v3), docx (v8: docx.Document, docx.Packer, docx.Paragraph, docx.TextRun, docx.Table, docx.TableRow, docx.TableCell, docx.HeadingLevel, docx.AlignmentType, docx.WidthType, docx.ShadingType, docx.Footer, docx.PageNumber), serta ExcelJS (v4), dan harus diakhiri return Blob. Contoh: return await docx.Packer.toBlob(doc); return await pres.write({outputType:"blob"}); return new Blob([await wb.xlsx.writeBuffer()]). Jangan memakai import atau require, dan jangan memakai fitur yang rumit seperti TableOfContents. Jaga kode ringkas dan pasti jalan. Rancang seperti desainer profesional: palet warna konsisten, pilihan font, judul, tabel berformat, grafik (addChart di pptx), sel berwarna, rumus, lebar kolom, freeze pane, header dan nomor halaman, sampul dan struktur yang jelas. Tidak ada akses internet, jadi jangan memakai gambar dari URL. Isi harus lengkap, benar, dan memakai bahasa pengguna. Setelah blok file, tulis hanya 2 sampai 3 kalimat ringkasan isi file, tanpa petunjuk teknis. File .pdf ditulis dengan markdown (# judul, ## subjudul, - poin, **tebal**, tabel dengan tanda |); .html satu halaman lengkap dengan CSS dan JS di dalamnya; serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas); pengguna bisa mengunduhnya sebagai PNG atau JPG dari editor. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama.';
 const MIME={csv:'text/csv;charset=utf-8',json:'application/json',html:'text/html',md:'text/markdown'};
 function xe(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
@@ -550,7 +575,7 @@ async function dlText(name,c){name=name.replace(/\.(ppt|doc|xls)$/i,m=>({'.ppt':
   catch(e){if(e.gen){toast('Kode file error: '+e.message.slice(0,110)+'. Tekan Ulangi jawaban atau minta AI memperbaikinya.');return}toast(/JSZip|jspdf|XLSX|PptxGenJS/.test(e.message||'')?'Pembuat file belum termuat. Cek internet lalu muat ulang halaman.':'Gagal membuat file');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[\\/:*?"<>|]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('File diunduh: '+name)}
 let pend=[],pendF=[];const MAX=200000,MAX2=300000,MAXA=12;let GEN=false,PN=0;
-function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.8))};im.onerror=()=>{URL.revokeObjectURL(u);rej()};im.src=u})}
+function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1568/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.85))};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('format gambar tidak bisa dibaca browser'))};im.src=u})}
 function fileObj(name,t){t=(t||'').trim();if(!t)throw new Error('kosong');return{name,text:t.length>MAX?t.slice(0,MAX)+'\n[...dipotong, file terlalu panjang]':t}}
 let pdfReady;
 function pdfLib(){return pdfReady||(pdfReady=fetch('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js').then(r=>r.text()).then(t=>{pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([t],{type:'text/javascript'}));return pdfjsLib}).catch(e=>{pdfReady=null;throw e}))}
@@ -563,13 +588,13 @@ async function readPdf(f){const lib=await pdfLib(),doc=await lib.getDocument({da
 async function addFiles(fs){for(const f of [...fs]){const n=f.name.toLowerCase();
   if(pend.length+pendF.length>=MAXA){toast('Maksimal '+MAXA+' lampiran per pesan');break}
   try{
-    if(f.type.startsWith('image/'))pend.push(await shrink(f));
+    if(f.type.startsWith('image/')||/\.(png|jpe?g|webp|gif|bmp)$/.test(n))pend.push(await shrink(f));
     else if(n.endsWith('.pdf'))await readPdf(f);
     else if(n.endsWith('.docx'))pendF.push(fileObj(f.name,(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value));
     else if(n.endsWith('.doc'))toast('Format .doc lama belum didukung. Simpan ulang sebagai .docx');
     else if(f.size<2e6&&(f.type.startsWith('text/')||/\.(txt|md|csv|json|html|xml|log|js|ts|py|css|sql|ya?ml|svg)$/.test(n)))pendF.push(fileObj(f.name,await f.text()));
     else toast('Format tidak didukung: '+f.name);
-  }catch(e){toast(/mammoth|pdfjs/.test(e.message||'')?'Pembaca dokumen belum termuat. Cek internet lalu muat ulang halaman.':e.message==='kosong'?'Tidak ada teks yang bisa dibaca di '+f.name:'Gagal membaca '+f.name)}}
+  }catch(e){toast(/mammoth|pdfjs/.test(e.message||'')?'Pembaca dokumen belum termuat. Cek internet lalu muat ulang halaman.':e.message==='kosong'?'Tidak ada teks yang bisa dibaca di '+f.name:'Gagal membaca '+f.name+(e.message?' ('+e.message+')':''))}}
   renderPrev()}
 function renderPrev(){$('#prev').innerHTML=(GEN?'<div class="chip gen"><span>Mode gambar</span><button data-gx="1" aria-label="Matikan mode gambar">✕</button></div>':'')+pend.map((u,i)=>`<div class="th"><img src="${u}" alt="Lampiran gambar ${i+1}, klik untuk memperbesar" data-pi="${i}" tabindex="0" role="button"><button data-rm="${i}" aria-label="Hapus gambar ${i+1}">✕</button></div>`).join('')+pendF.map((f,i)=>f.pasted?`<div class="pcard"><div class="psnip" data-pf="${i}" tabindex="0" role="button" title="Lihat isi">${esc(f.text.slice(0,180))}</div><div class="prow"><span class="pbadge">Ditempel</span><span class="pm">${f.text.split('\n').length} baris</span><button data-pe="${i}" aria-label="Edit teks tempelan" title="Edit">✎</button><button data-rf="${i}" aria-label="Hapus tempelan" title="Hapus">✕</button></div></div>`:`<div class="chip"><span data-pf="${i}" tabindex="0" role="button">${esc(f.name)}</span><button data-rf="${i}" aria-label="Hapus ${esc(f.name)}">✕</button></div>`).join('')}
 const pop=$('#pop'),closePop=()=>{pop.hidden=true;$('#attach').setAttribute('aria-expanded','false')};
@@ -708,7 +733,7 @@ $('#bgimgf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{BGI=a
 $('#rot').onclick=()=>{ROT=(ROT+1)%4;drawImg()};$('#flip').onclick=()=>{FLP=!FLP;drawImg()};
 $('#frs').onclick=()=>{['fbr','fco','fgr'].forEach(i=>$('#'+i).value=0);drawImg()};
 $('#bgdl').onclick=()=>{const cv=$('#bgc'),f=$('#fmt').value,mime=f==='png'?'image/png':f==='webp'?'image/webp':'image/jpeg';let src=cv;if(f==='jpg'){src=document.createElement('canvas');src.width=cv.width;src.height=cv.height;const x=src.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,src.width,src.height);x.drawImage(cv,0,0)}src.toBlob(b=>b?bgSave(b,'gambar.'+f):toast('Format ini tidak didukung browser'),mime,0.92)};
-const VER='2026-10-17.1';
+const VER='2026-10-17.3';
 async function hardRefresh(){try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()))}catch(e){}try{await flush()}catch(e){}location.replace(location.pathname+'?r='+Date.now())}
 async function chkVer(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const m=(await r.text()).match(new RegExp("const VER"+"='([^']+)'"));if(m&&m[1]!==VER)$('#upd').hidden=false}catch(e){}}
 $('#ver').textContent=VER;$('#refr').onclick=hardRefresh;$('#updGo').onclick=hardRefresh;
