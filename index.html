@@ -127,6 +127,7 @@ label{display:block;font-weight:600;margin:14px 0 5px}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .btn{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:500}.btn:hover{background:var(--raise)}
 .btn.p{background:var(--btn);color:var(--btn-ink);border-color:transparent;font-weight:600}
+.keyrow{display:flex;gap:8px}.keyrow input{flex:1}.keyrow .btn{white-space:nowrap}
 .mrow{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.mrow div{flex:1;min-width:0}.mrow b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mrow small{color:var(--mute)}.mrow small.lim{color:var(--err)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--btn);color:var(--btn-ink);padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}#toast.on{opacity:1}
 @media(max-width:760px){
@@ -170,7 +171,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
           <div class="pop" id="pop" hidden>
             <button data-k="img">Gambar<small>JPG, PNG, tangkapan layar</small></button>
             <button data-k="doc">Dokumen<small>PDF, Word (.docx), teks</small></button>
-            <button data-k="gen">Buat gambar<small>AI fokus membuat gambar (SVG)</small></button>
+            <button data-k="gen">Buat gambar<small>SVG, atau PNG asli jika model gambar diisi</small></button>
           </div>
         </div>
         <span class="sp"></span>
@@ -197,12 +198,21 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
       <input id="base" placeholder="https://modelrouter.id/v1">
       <div class="hint">Dianggap kompatibel OpenAI (/chat/completions). Cek dokumentasi ModelRouter dan sesuaikan jika berbeda.</div>
       <label for="key">API key</label>
-      <input id="key" type="password" autocomplete="off" placeholder="sk-...">
-      <div class="hint">Disimpan di browser ini saja. Jangan isi di komputer umum.</div>
+      <div class="keyrow"><input id="key" type="password" autocomplete="off" placeholder="sk-..."><button class="btn" id="showKey" type="button">Lihat</button></div>
+      <div class="hint">Disimpan di browser ini saja, tidak ikut ke GitHub. Jangan isi di komputer umum.</div>
       <label for="sys">Instruksi sistem</label>
       <textarea id="sys" rows="3" placeholder="Contoh: Jawab dalam bahasa Indonesia yang ringkas."></textarea>
       <label for="temp">Kreativitas (temperature): <span id="tv"></span></label>
       <input id="temp" type="range" min="0" max="2" step="0.1">
+      <label for="ctx">Pesan terakhir yang dikirim ke AI</label>
+      <input id="ctx" type="number" min="0" step="1" placeholder="20">
+      <div class="hint">Makin sedikit, makin cepat dan hemat. Isi 0 untuk mengirim seluruh percakapan.</div>
+      <label for="maxtok">Batas panjang jawaban (token)</label>
+      <input id="maxtok" type="number" min="0" step="100" placeholder="0">
+      <div class="hint">Isi 0 untuk tanpa batas. Jawaban lebih pendek selesai lebih cepat, tapi bisa terpotong.</div>
+      <label for="imgm">Model gambar (opsional)</label>
+      <input id="imgm" list="models" placeholder="contoh: gpt-image-1">
+      <div class="hint">Isi jika ModelRouter punya endpoint /images/generations. Kosong = Mode gambar membuat SVG lewat model chat.</div>
       <div class="btns">
         <button class="btn p" id="saveSet">Simpan pengaturan</button>
         <button class="btn" id="loadModels">Muat daftar model</button>
@@ -228,7 +238,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
 </main>
 <div id="viewer" hidden role="dialog" aria-modal="true" aria-label="Pratinjau lampiran"><div class="vbox"><div class="vhead"><b id="vt"></b><button id="vx">Tutup</button></div><div class="hint" id="vn" style="padding:8px 16px 0"></div><div id="vb"></div></div></div>
 <div id="editor" hidden role="dialog" aria-modal="true" aria-label="Editor file"><div class="ebox">
-  <div class="vhead"><b id="et"></b><span class="hint" id="ed" style="margin:0"></span><button class="btn p" id="esv">Simpan</button><button class="btn" id="epng" hidden>Unduh PNG</button><button class="btn" id="edl">Unduh</button><button class="btn" id="ex">Tutup</button></div>
+  <div class="vhead"><b id="et"></b><span class="hint" id="ed" style="margin:0"></span><button class="btn p" id="esv">Simpan</button><button class="btn" id="epng" hidden>Unduh PNG</button><button class="btn" id="ejpg" hidden>Unduh JPG</button><button class="btn" id="edl">Unduh</button><button class="btn" id="ex">Tutup</button></div>
   <div class="ebody"><textarea id="esrc" spellcheck="false" aria-label="Isi file"></textarea><div id="epv"></div></div>
 </div></div>
 <div id="toast" role="status"></div>
@@ -241,7 +251,7 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundle.js"></script>
 <script>
 const $=s=>document.querySelector(s), K='dashboardAI.v1';
-const def={chats:[],cur:null,cfg:{base:'https://modelrouter.id/v1',key:'',model:'claude-opus-5',models:[],sys:'',temp:0.7},usage:{req:0,tin:0,tout:0,models:{}}};
+const def={chats:[],cur:null,cfg:{base:'https://modelrouter.id/v1',key:'',model:'claude-opus-5',models:[],sys:'',temp:0.7,ctx:20,maxtok:0,imgModel:''},usage:{req:0,tin:0,tout:0,models:{}}};
 let S=structuredClone(def), busy=false, ctrl=null, t0=0;
 function load(){try{const d=JSON.parse(localStorage.getItem(K));return d?{...def,...d,cfg:{...def.cfg,...d.cfg}}:structuredClone(def)}catch(e){return structuredClone(def)}}
 function saveLS(){for(;;){try{localStorage.setItem(K,JSON.stringify(S));return true}catch(e){
@@ -315,9 +325,13 @@ function think(m){const lbl=m.content?'Menulis jawaban':(m.st||'Sedang berpikir'
 function renderThread(force){GF=[];CODES=[];const c=chat(),t=$('#thread'),box=$('#msgs'),near=box.scrollHeight-box.scrollTop-box.clientHeight<140;
   if(!c||!c.msgs.length){t.innerHTML='<div class="empty">'+LOGO(60)+'<h2>Mau mengerjakan apa hari ini?</h2><p>Tanya apa saja, lampirkan file, atau minta dibuatkan dokumen.</p><div class="sug"><button data-s="Buatkan laporan mingguan dalam file Word">Laporan Word</button><button data-s="Buatkan tabel anggaran bulanan dalam file Excel">Tabel Excel</button><button data-s="Buatkan presentasi 5 slide tentang ">Presentasi</button><button data-s="Buatkan halaman web sederhana untuk ">Halaman web</button></div></div>';return}
   const last=c.msgs.length-1;
-  t.innerHTML=c.msgs.map((m,mi)=>{const u=m.role==='user',live=busy&&mi===last&&!u;
-    return `<div class="m ${u?'u':''} ${m.err?'err':''}">${u?'':'<div class="av">'+LOGO(28)+'</div>'}<div class="b">${thumbs(m,mi)}${(m.notes||[]).map(n=>'<div class="note">'+esc(n)+'</div>').join('')}${md(m.content,mi,live)}${live?think(m):''}${!u&&!live&&m.content?'<div class="mdl">'+(m.model&&!m.err?'<span>'+esc(m.model)+'</span>':'')+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':''}</div></div>`}).join('');
+  t.innerHTML=c.msgs.map((m,mi)=>{if(mi===last){lastG=GF.length;lastC=CODES.length}return `<div class="m ${m.role==='user'?'u':''} ${m.err?'err':''}">${m.role==='user'?'':'<div class="av">'+LOGO(28)+'</div>'}<div class="b">${inner(m,mi,last)}</div></div>`}).join('');
   if(near||force)box.scrollTop=box.scrollHeight;updDown()}
+let lastG=0,lastC=0,rq=0;
+function inner(m,mi,last){const u=m.role==='user',live=busy&&mi===last&&!u;return thumbs(m,mi)+(m.notes||[]).map(n=>'<div class="note">'+esc(n)+'</div>').join('')+md(m.content,mi,live)+(live?think(m):'')+(!u&&!live&&m.content?'<div class="mdl">'+(m.model&&!m.err?'<span>'+esc(m.model)+'</span>':'')+(m.ms&&!m.err?'<span>'+(m.ttft/1000).toFixed(1)+' dtk ke kata pertama, total '+(m.ms/1000).toFixed(1)+' dtk</span>':'')+(m.err?'':'<button data-cm="'+mi+'">Salin jawaban</button>')+(mi===last&&!busy?'<button data-rg="1">Ulangi jawaban</button>':'')+'</div>':'')}
+function stream(){if(rq)return;rq=setTimeout(()=>{rq=0;const c=chat();if(!c||!busy)return;const mi=c.msgs.length-1,m=c.msgs[mi],els=document.querySelectorAll('#thread .m'),el=els[els.length-1];
+  if(!m||!el||m.role==='user'||els.length!==c.msgs.length){renderThread();return}
+  const box=$('#msgs'),near=box.scrollHeight-box.scrollTop-box.clientHeight<140;GF.length=lastG;CODES.length=lastC;el.className='m'+(m.err?' err':'');el.querySelector('.b').innerHTML=inner(m,mi,mi);if(near)box.scrollTop=box.scrollHeight;updDown()},60)}
 function updDown(){const b=$('#msgs');$('#down').hidden=b.scrollHeight-b.scrollTop-b.clientHeight<200}
 setInterval(()=>{if(!busy)return;const e=document.querySelector('.think .tt');if(e)e.textContent=Math.floor((Date.now()-t0)/1000)+' dtk'},1000);
 function renderDash(){stor();
@@ -325,7 +339,7 @@ function renderDash(){stor();
   $('#stats').innerHTML=[['Percakapan',S.chats.length],['Pesan',msgs],['Permintaan API',u.req],['Token (total)',tot.toLocaleString('id-ID')]].map(([l,v])=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
   const ms=Object.entries(u.models),mx=Math.max(1,...ms.map(x=>x[1]));
   $('#byModel').innerHTML=ms.length?ms.map(([m,n])=>`<div class="row"><i title="${esc(m)}">${esc(m)}</i><div class="bar"><div style="width:${n/mx*100}%"></div></div><span>${n}</span></div>`).join(''):'<div class="hint">Belum ada permintaan.</div>'}
-function renderSet(){const c=S.cfg;$('#base').value=c.base;$('#key').value=c.key;$('#sys').value=c.sys;$('#temp').value=c.temp;$('#tv').textContent=c.temp;renderModelUI()}
+function renderSet(){const c=S.cfg;$('#base').value=c.base;$('#key').value=c.key;$('#sys').value=c.sys;$('#temp').value=c.temp;$('#ctx').value=c.ctx;$('#maxtok').value=c.maxtok;$('#imgm').value=c.imgModel||'';$('#tv').textContent=c.temp;renderModelUI()}
 function renderAll(){renderList();renderThread(true);renderDash()}
 function api(path){return S.cfg.base.replace(/\/+$/,'')+path}
 function hdr(){return{'Content-Type':'application/json','Authorization':'Bearer '+S.cfg.key}}
@@ -335,19 +349,31 @@ async function send(){
   fixModels();if(!S.cfg.key){toast('Isi API key di Pengaturan dulu');show('set');return}
   if(!chat())newChat();const c=chat();
   c.msgs.push({role:'user',content:txt,imgs:pend.length?pend.slice():undefined,files:pendF.length?pendF.slice():undefined,gen:GEN||undefined});if(c.msgs.length===1)c.title=txt.slice(0,40)||pendF[0]?.name||'Gambar';pend=[];pendF=[];renderPrev();
-  $('#in').value='';autosize();clearDraft();return gen(c)}
+  $('#in').value='';autosize();clearDraft();return (GEN&&S.cfg.imgModel)?genImage(c,txt):gen(c)}
 function regen(){if(busy)return;const c=chat();if(!c)return;fixModels();if(!S.cfg.key){toast('Isi API key di Pengaturan dulu');show('set');return}
-  while(c.msgs.length&&c.msgs[c.msgs.length-1].role!=='user')c.msgs.pop();if(c.msgs.length)gen(c)}
+  while(c.msgs.length&&c.msgs[c.msgs.length-1].role!=='user')c.msgs.pop();if(c.msgs.length){const lu=c.msgs[c.msgs.length-1];if(lu.gen&&S.cfg.imgModel)genImage(c,lu.content);else gen(c)}}
+async function genImage(c,prompt){
+  const bot={role:'assistant',content:'',st:'Membuat gambar'};c.msgs.push(bot);setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
+  try{
+    const r=await fetch(api('/images/generations'),{method:'POST',headers:hdr(),signal:ctrl.signal,body:JSON.stringify({model:S.cfg.imgModel,prompt:prompt||'gambar',n:1,size:'1024x1024',response_format:'b64_json'})});
+    if(!r.ok)throw new Error('Status '+r.status+': '+(await r.text()).slice(0,300));
+    const d=(await r.json()).data?.[0];
+    if(d?.b64_json){bot.imgs=['data:image/png;base64,'+d.b64_json];bot.content='Gambar selesai. Klik gambar untuk memperbesar.'}
+    else if(d?.url){bot.content='Gambar siap: '+d.url}
+    else throw new Error('Respons tidak berisi gambar');
+    bot.model=S.cfg.imgModel;S.usage.req++;S.usage.models[bot.model]=(S.usage.models[bot.model]||0)+1;
+  }catch(e){if(e.name==='AbortError')bot.content='(Dihentikan)';else{bot.err=true;bot.content='Gagal membuat gambar. '+(e.message==='Failed to fetch'?'Periksa Base URL, internet, atau CORS.':e.message)}}
+  bot.ms=Date.now()-t0;bot.ttft=bot.ms;delete bot.st;ctrl=null;setBusy(false);save();renderAll()}
 async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi model'};c.msgs.push(bot);setBusy(true);t0=Date.now();ctrl=new AbortController();save();renderAll();
-  const hist=c.msgs.slice(0,-1).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=(m.imgs||[]).filter(Boolean),t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...(t?[{type:'text',text:t}]:[]),...im.map(u=>({type:'image_url',image_url:{url:u}}))]:t}});
-  const lu=[...c.msgs].reverse().find(m=>m.role==='user');hist.unshift({role:'system',content:FILE_PROMPT+(lu&&lu.gen?'\n\n'+IMG_PROMPT:'')+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
+  const hist=(S.cfg.ctx>0?c.msgs.slice(0,-1).slice(-S.cfg.ctx):c.msgs.slice(0,-1)).filter(m=>!m.err&&(m.content||(m.imgs||[]).some(Boolean)||(m.files||[]).some(f=>f.text))).map(m=>{const im=m.role==='user'?(m.imgs||[]).filter(Boolean):[],t=(m.content||'')+(m.files||[]).filter(f=>f.text).map(f=>'\n\n--- Isi file: '+f.name+' ---\n'+f.text).join('');return{role:m.role,content:im.length?[...(t?[{type:'text',text:t}]:[]),...im.map(u=>({type:'image_url',image_url:{url:u}}))]:t}}).filter(m=>m.content&&m.content.length);
+  while(hist.length&&hist[0].role!=='user')hist.shift();const lu=[...c.msgs].reverse().find(m=>m.role==='user');hist.unshift({role:'system',content:FILE_PROMPT+(lu&&lu.gen?'\n\n'+IMG_PROMPT:'')+(S.cfg.sys?'\n\n'+S.cfg.sys:'')});
   let usage=null,used=null;const tried=[];
   for(;;){const m=order().find(x=>!tried.includes(x.id));
     if(!m){if(!bot.content){bot.content='**Semua model sedang limit.**\n\n'+S.cfg.models.map(x=>'- '+x.id+': '+untilTxt(x)).join('\n')+'\n\nTambahkan model lain di Pengaturan, atau tekan Ulangi jawaban setelah waktu di atas.';bot.err=true}break}
     bot.st=tried.length?'Beralih ke '+m.id:'Sedang berpikir';renderThread();
     tried.push(m.id);
     try{
-      const r=await fetch(api('/chat/completions'),{method:'POST',headers:hdr(),signal:ctrl.signal,body:JSON.stringify({model:m.id,messages:hist,temperature:+S.cfg.temp,stream:true,stream_options:{include_usage:true}})});
+      const r=await fetch(api('/chat/completions'),{method:'POST',headers:hdr(),signal:ctrl.signal,body:JSON.stringify({model:m.id,messages:hist,temperature:+S.cfg.temp,...(S.cfg.maxtok>0?{max_tokens:+S.cfg.maxtok}:{}),stream:true,stream_options:{include_usage:true}})});
       if(!r.ok){const body=await r.text();let msg=body;try{msg=JSON.parse(body).error?.message||body}catch(e){}
         const li=limitInfo(r.status,body,+r.headers.get('retry-after')||0);
         if(li){m.until=li;(bot.notes=bot.notes||[]).push(m.id+' terkena limit ('+String(msg).replace(/\s+/g,' ').slice(0,90)+'). '+untilTxt(m)+'.');save();renderModelUI();toast(m.id+' terkena limit, mencoba model lain...');continue}
@@ -356,17 +382,17 @@ async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi mod
       const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
       for(;;){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop();
         for(const l of ls){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(!d||d==='[DONE]')continue;
-          try{const j=JSON.parse(d);if(j.usage)usage=j.usage;const p=j.choices?.[0]?.delta?.content;if(p){bot.content+=p;renderThread()}}catch(e){}}}
+          try{const j=JSON.parse(d);if(j.usage)usage=j.usage;const p=j.choices?.[0]?.delta?.content;if(p){bot.content+=p;if(!bot.ttft)bot.ttft=Date.now()-t0;stream()}}catch(e){}}}
       if(!bot.content)bot.content='(Balasan kosong)';
     }catch(e){
       if(e.name==='AbortError'){used=used||m.id;bot.model=bot.model||m.id;if(!bot.content)bot.content='(Dihentikan)'}
       else{bot.content='Gagal menghubungi API. '+(e.message==='Failed to fetch'?'Periksa Base URL, koneksi internet, atau kemungkinan pemblokiran CORS oleh server.':e.message);bot.err=true}}
     break}
-  delete bot.st;
+  bot.ms=Date.now()-t0;if(!bot.ttft)bot.ttft=bot.ms;delete bot.st;
   if(used){const u=S.usage;u.req++;u.models[used]=(u.models[used]||0)+1;u.tin+=usage?.prompt_tokens??Math.ceil(hist.reduce((a,x)=>a+(typeof x.content==='string'?x.content.length:x.content.reduce((y,q)=>y+(q.text?q.text.length:3000),0)),0)/4);u.tout+=usage?.completion_tokens??Math.ceil(bot.content.length/4)}
   ctrl=null;setBusy(false);save();renderAll();renderModelUI();if(matchMedia('(hover:hover)').matches)$('#in').focus()}
 function show(v){document.querySelectorAll('.view').forEach(e=>e.classList.toggle('on',e.id===v));document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.dataset.v===v));if(v==='dash')renderDash();$('#side').classList.remove('open')}
-function readSet(){S.cfg={...S.cfg,base:$('#base').value.trim()||def.cfg.base,key:$('#key').value.trim().replace(/^Bearer\s+/i,'').replace(/^["']|["']$/g,''),sys:$('#sys').value,temp:+$('#temp').value};save()}
+function readSet(){S.cfg={...S.cfg,base:$('#base').value.trim()||def.cfg.base,key:$('#key').value.trim().replace(/^Bearer\s+/i,'').replace(/^["']|["']$/g,''),sys:$('#sys').value,temp:+$('#temp').value,ctx:$('#ctx').value===''?20:Math.max(0,parseInt($('#ctx').value)||0),maxtok:Math.max(0,parseInt($('#maxtok').value)||0),imgModel:$('#imgm').value.trim()};save()}
 function autosize(){const e=$('#in');e.style.height='auto';e.style.height=Math.min(e.scrollHeight,180)+'px'}
 async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='var(--err)';d.textContent=t};d.style.color='';d.textContent='Menguji koneksi...';
   if(!S.cfg.key)return bad('API key masih kosong.');
@@ -379,7 +405,7 @@ async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='va
     const ids=((await r.json()).data||[]).map(m=>m.id);$('#models').innerHTML=ids.map(i=>`<option value="${esc(i)}">`).join('');
     d.style.color='var(--acc)';d.textContent='Koneksi berhasil. '+ids.length+' model ditemukan.'+(S.cfg.models.some(m=>!ids.includes(m.id))?' Tapi ada nama model di Daftar model yang tidak ada di server, periksa ejaannya.':'');
   }catch(e){bad('Browser tidak bisa menjangkau server ('+e.message+'). Kemungkinan: tidak ada internet, Base URL salah ketik, atau server memblokir akses langsung dari browser (CORS).')}}
-const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Ekstensi yang didukung: .docx dan .pdf (teks biasa; baris diawali # atau ## menjadi judul, baris diawali tanda minus menjadi poin); .xlsx (tulis isi sebagai CSV dengan baris pertama berisi judul kolom; rumus boleh diawali tanda sama dengan); .pptx (tiap slide dimulai baris # Judul slide lalu poin diawali tanda minus, antar slide dipisah baris berisi tiga tanda minus); .html (satu halaman lengkap dengan CSS dan JS di dalamnya, bisa dipratinjau pengguna); serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa di dalam jawaban. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas). Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama. Setelah blok file, beri penjelasan singkat.';
+const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Ekstensi yang didukung: .docx dan .pdf (teks biasa; baris diawali # atau ## menjadi judul, baris diawali tanda minus menjadi poin); .xlsx (tulis isi sebagai CSV dengan baris pertama berisi judul kolom; rumus boleh diawali tanda sama dengan); .pptx (tiap slide dimulai baris # Judul slide lalu poin diawali tanda minus, antar slide dipisah baris berisi tiga tanda minus); .html (satu halaman lengkap dengan CSS dan JS di dalamnya, bisa dipratinjau pengguna); serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa di dalam jawaban. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas). Pengguna bisa mengunduh svg sebagai PNG atau JPG dari editor, jadi jika diminta PNG atau JPG tetap buat svg. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama. Setelah blok file, beri penjelasan singkat.';
 const MIME={csv:'text/csv;charset=utf-8',json:'application/json',html:'text/html',md:'text/markdown'};
 function xe(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
 function line(l){let x=l.replace(/\*\*/g,''),lv=0;const h=x.match(/^(#{1,3})\s+(.*)/);if(h){x=h[2];lv=h[1].length}else if(/^\s*[-*]\s+/.test(x))x='\u2022  '+x.replace(/^\s*[-*]\s+/,'');return{x,lv}}
@@ -424,14 +450,14 @@ async function addFiles(fs){for(const f of [...fs]){const n=f.name.toLowerCase()
     else if(n.endsWith('.pdf'))await readPdf(f);
     else if(n.endsWith('.docx'))pendF.push(fileObj(f.name,(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value));
     else if(n.endsWith('.doc'))toast('Format .doc lama belum didukung. Simpan ulang sebagai .docx');
-    else if(f.size<2e6&&(f.type.startsWith('text/')||/\.(txt|md|csv|json|html|xml|log|js|ts|py|css|sql|ya?ml)$/.test(n)))pendF.push(fileObj(f.name,await f.text()));
+    else if(f.size<2e6&&(f.type.startsWith('text/')||/\.(txt|md|csv|json|html|xml|log|js|ts|py|css|sql|ya?ml|svg)$/.test(n)))pendF.push(fileObj(f.name,await f.text()));
     else toast('Format tidak didukung: '+f.name);
   }catch(e){toast(/mammoth|pdfjs/.test(e.message||'')?'Pembaca dokumen belum termuat. Cek internet lalu muat ulang halaman.':e.message==='kosong'?'Tidak ada teks yang bisa dibaca di '+f.name:'Gagal membaca '+f.name)}}
   renderPrev()}
 function renderPrev(){$('#prev').innerHTML=(GEN?'<div class="chip gen"><span>Mode gambar</span><button data-gx="1" aria-label="Matikan mode gambar">✕</button></div>':'')+pend.map((u,i)=>`<div class="th"><img src="${u}" alt="Lampiran gambar ${i+1}, klik untuk memperbesar" data-pi="${i}" tabindex="0" role="button"><button data-rm="${i}" aria-label="Hapus gambar ${i+1}">✕</button></div>`).join('')+pendF.map((f,i)=>f.pasted?`<div class="pcard"><div class="psnip" data-pf="${i}" tabindex="0" role="button" title="Lihat isi">${esc(f.text.slice(0,180))}</div><div class="prow"><span class="pbadge">Ditempel</span><span class="pm">${f.text.split('\n').length} baris</span><button data-pe="${i}" aria-label="Edit teks tempelan" title="Edit">✎</button><button data-rf="${i}" aria-label="Hapus tempelan" title="Hapus">✕</button></div></div>`:`<div class="chip"><span data-pf="${i}" tabindex="0" role="button">${esc(f.name)}</span><button data-rf="${i}" aria-label="Hapus ${esc(f.name)}">✕</button></div>`).join('')}
 const pop=$('#pop'),closePop=()=>{pop.hidden=true;$('#attach').setAttribute('aria-expanded','false')};
 $('#attach').onclick=e=>{e.stopPropagation();closeMp();const o=pop.hidden;pop.hidden=!o;$('#attach').setAttribute('aria-expanded',String(o))};
-pop.onclick=e=>{const k=e.target.closest('button')?.dataset.k;if(!k)return;closePop();if(k==='gen'){GEN=!GEN;renderPrev();toast(GEN?'Mode gambar aktif. AI akan fokus membuat gambar.':'Mode gambar dimatikan');$('#in').focus();return}$(k==='img'?'#imgf':'#docf').click()};
+pop.onclick=e=>{const k=e.target.closest('button')?.dataset.k;if(!k)return;closePop();if(k==='gen'){GEN=!GEN;renderPrev();toast(GEN?'Mode gambar aktif.':'Mode gambar dimatikan');$('#in').focus();return}$(k==='img'?'#imgf':'#docf').click()};
 $('#docf').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 function view(k,x,name,note){if(!x){toast('Isi lampiran ini sudah tidak tersimpan karena penyimpanan penuh');return}
   const b=$('#vb');b.innerHTML='';$('#vn').textContent=k==='img'?'':(note||'Teks yang terbaca dari file. Inilah yang dikirim ke model.');
@@ -506,6 +532,7 @@ $('#list').onclick=e=>{const rn=e.target.dataset.ren;if(rn){const c=S.chats.find
 $('#temp').oninput=e=>$('#tv').textContent=e.target.value;
 $('#saveSet').onclick=()=>{readSet();toast('Pengaturan disimpan')};
 $('#loadModels').onclick=$('#test').onclick=diagnose;
+$('#showKey').onclick=()=>{const k=$('#key'),s=k.type==='password';k.type=s?'text':'password';$('#showKey').textContent=s?'Sembunyikan':'Lihat'};
 $('#exp').onclick=()=>{const d={...S,cfg:{...S.cfg,key:''}};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));a.download='cadangan-goruku-ai-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Cadangan diunduh')};
 $('#imp').onclick=()=>$('#file').click();
 $('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.chats))throw 0;const key=S.cfg.key;S={...def,...d,cfg:{...def.cfg,...d.cfg,key}};save();renderSet();renderAll();toast('Cadangan dipulihkan')}catch(x){toast('File cadangan tidak valid')}e.target.value=''};
@@ -514,7 +541,7 @@ $('#wipe').onclick=()=>{if(confirm('Hapus semua percakapan, statistik, dan penga
 let ED=null,edT;
 const PV=n=>/\.(html?|svg)$/i.test(n);
 function setBlock(t,k,body){let n=-1;return t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(m,nm)=>(++n===k)?'```file:'+nm+'\n'+body.replace(/```/g,'` ` `')+'\n```':m)}
-function openEditor(i){const g=GF[i];if(!g)return;ED={name:g[0],mi:g[2],k:g[3],src:g[1]};$('#et').textContent=g[0];$('#esrc').value=g[1];$('.ebody').classList.toggle('nopv',!PV(g[0]));$('#epng').hidden=!/\.svg$/i.test(g[0]);$('#ed').textContent='';$('#editor').hidden=false;edPrev();$('#esrc').focus()}
+function openEditor(i){const g=GF[i];if(!g)return;ED={name:g[0],mi:g[2],k:g[3],src:g[1]};$('#et').textContent=g[0];$('#esrc').value=g[1];$('.ebody').classList.toggle('nopv',!PV(g[0]));$('#epng').hidden=$('#ejpg').hidden=!/\.svg$/i.test(g[0]);$('#ed').textContent='';$('#editor').hidden=false;edPrev();$('#esrc').focus()}
 function edPrev(){if(!ED||!PV(ED.name))return;const v=$('#esrc').value,sv=/\.svg$/i.test(ED.name),f=document.createElement('iframe');f.title='Pratinjau';f.setAttribute('sandbox',sv?'':'allow-scripts');f.srcdoc=sv?'<style>html,body{margin:0;height:100%}body{display:grid;place-items:center;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>'+v:v;$('#epv').replaceChildren(f)}
 function closeEd(){if(!ED)return;if($('#esrc').value!==ED.src&&!confirm('Perubahan belum disimpan. Tutup tanpa menyimpan?'))return;$('#editor').hidden=true;$('#epv').replaceChildren();ED=null}
 $('#esrc').addEventListener('input',()=>{clearTimeout(edT);edT=setTimeout(edPrev,300);$('#ed').textContent='Belum disimpan'});
@@ -522,13 +549,15 @@ $('#esrc').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();c
 $('#esv').onclick=()=>{if(!ED)return;if(ED.pf!==undefined){const f=pendF[ED.pf];if(!f){toast('Lampiran sudah dihapus');return}const v=$('#esrc').value;f.text=v;ED.src=v;renderPrev();$('#ed').textContent='Tersimpan';toast('Teks lampiran diperbarui');return}const m=chat()?.msgs[ED.mi];if(!m){toast('Pesan asal file tidak ditemukan');return}const v=$('#esrc').value;m.content=setBlock(m.content,ED.k,v);ED.src=v;save();renderThread();$('#ed').textContent='Tersimpan';toast('Perubahan disimpan ke percakapan')};
 $('#edl').onclick=()=>{if(ED)dlText(ED.name,$('#esrc').value)};
 $('#ex').onclick=closeEd;
-$('#epng').onclick=()=>{if(!ED)return;const c=$('#esrc').value,nm=ED.name,vb=c.match(/viewBox\s*=\s*"\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/),im=new Image();
-  im.onload=()=>{let w=1200,h=900;if(vb&&+vb[1]>0){h=Math.round(1200*vb[2]/vb[1])}else if(im.naturalWidth){w=im.naturalWidth*2;h=im.naturalHeight*2}const cv=document.createElement('canvas');cv.width=w;cv.height=h;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm.replace(/\.svg$/i,'')+'.png';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('PNG diunduh')},'image/png')};
-  im.onerror=()=>toast('SVG tidak valid, tidak bisa dijadikan PNG');im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)};
+function exportSvg(mime,ext){if(!ED)return;const c=$('#esrc').value,nm=ED.name,vb=c.match(/viewBox\s*=\s*"\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/),im=new Image();
+  im.onload=()=>{let w=1200,h=900;if(vb&&+vb[1]>0){h=Math.round(1200*vb[2]/vb[1])}else if(im.naturalWidth){w=im.naturalWidth*2;h=im.naturalHeight*2}const cv=document.createElement('canvas');cv.width=w;cv.height=h;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm.replace(/\.svg$/i,'')+'.'+ext;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast(ext.toUpperCase()+' diunduh')},mime,0.92)};
+  im.onerror=()=>toast('SVG tidak valid, tidak bisa dijadikan '+ext.toUpperCase());im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c)}
+$('#epng').onclick=()=>exportSvg('image/png','png');
+$('#ejpg').onclick=()=>exportSvg('image/jpeg','jpg');
 const IMG_PROMPT='MODE GAMBAR AKTIF: pengguna ingin dibuatkan gambar. Fokus hanya pada gambar: tulis satu file .svg lengkap (elemen svg dengan atribut viewBox, komposisi rapi, warna dan gradien yang menarik, teks seperlunya) di dalam blok file. Jangan membuat kode atau file lain. Jika pengguna melampirkan file svg atau minta mengubah gambar sebelumnya, tulis ulang svg lengkap dengan nama file yang sama. Penjelasan cukup satu atau dua kalimat.';
 function addPasted(t){if(pend.length+pendF.length>=6){toast('Maksimal 6 lampiran per pesan');return}t=t.trim();const ty=/^<!doctype html|^<html/i.test(t)?'html':/^<svg/i.test(t)?'svg':'txt';
   pendF.push({name:'tempelan'+(++PN)+'.'+ty,text:t.length>MAX2?t.slice(0,MAX2)+'\n[...dipotong, teks terlalu panjang]':t,pasted:true});renderPrev();toast('Teks panjang dijadikan lampiran. Klik pensil untuk mengedit.')}
-function openPendEditor(i){const f=pendF[i];if(!f)return;ED={name:f.name,pf:i,src:f.text};$('#et').textContent=f.name;$('#esrc').value=f.text;$('.ebody').classList.toggle('nopv',!PV(f.name));$('#epng').hidden=!/\.svg$/i.test(f.name);$('#ed').textContent='';$('#editor').hidden=false;edPrev();$('#esrc').focus()}
+function openPendEditor(i){const f=pendF[i];if(!f)return;ED={name:f.name,pf:i,src:f.text};$('#et').textContent=f.name;$('#esrc').value=f.text;$('.ebody').classList.toggle('nopv',!PV(f.name));$('#epng').hidden=$('#ejpg').hidden=!/\.svg$/i.test(f.name);$('#ed').textContent='';$('#editor').hidden=false;edPrev();$('#esrc').focus()}
 const DK='goruku.draft';
 function clearDraft(){try{localStorage.removeItem(DK)}catch(e){}}
 $('#in').addEventListener('input',()=>{try{const v=$('#in').value;v?localStorage.setItem(DK,v):localStorage.removeItem(DK)}catch(e){}});
