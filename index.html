@@ -115,7 +115,6 @@ nav .sp{flex:1}#saved{font-size:12px;color:var(--mute);margin-right:6px}
 #esrc{resize:none;border:0;border-right:1px solid var(--line);background:var(--code);padding:14px;font:13px/1.6 var(--m);outline:0;white-space:pre;overflow:auto;tab-size:2;min-height:0}
 #epv{background:#fff;min-height:0}#epv iframe{display:block;width:100%;height:100%;border:0;background:#fff}
 @media(max-width:760px){.ebody{grid-template-columns:1fr;grid-template-rows:1fr 1fr}#esrc{border-right:0;border-bottom:1px solid var(--line)}}
-@media(prefers-reduced-motion:reduce){.x{}}
 .pad{padding:24px 16px;overflow:auto;flex:1}.pad h2{font:700 24px var(--h);margin:0 0 16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:22px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}.stat b{display:block;font:700 28px var(--h)}.stat span{color:var(--mute);font-size:13px}
@@ -140,7 +139,6 @@ aside.open~#scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5)
 #menu{display:grid}#saved{display:none}nav{padding:8px 10px}nav .tab{padding:7px 10px}
 .empty h2{font-size:30px}.u .b{max-width:92%}.av{display:none}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
-
 @media(max-width:760px){
 nav{gap:2px;overflow-x:auto;scrollbar-width:none;padding:8px 10px}nav::-webkit-scrollbar{display:none}
 nav .tab{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}nav .sp{flex:1 0 8px}.ibtn{flex-shrink:0}
@@ -369,7 +367,16 @@ const CPI='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="c
 const EXP=new Set();
 function code(l,c,key){c=c.replace(/\n$/,'');CODES.push(c);const n=c.split('\n').length,long=n>16,col=long&&!EXP.has(key);return '<div class="cb'+(col?' col':'')+'"><div class="cbh"><span>'+esc(l||'kode')+(long?' \u00b7 '+n+' baris':'')+'</span><button data-cp="'+(CODES.length-1)+'">'+CPI+'<span>Salin</span></button></div><pre><code>'+hl(esc(c),l)+'</code></pre>'+(long?'<button class="cbx" data-ex="'+key+'">'+(col?'Tampilkan semua':'Ciutkan')+'</button>':'')+'</div>'}
 function liveCode(l,c){const L=c.split('\n');return '<div class="cb live"><div class="cbh"><span>'+esc(l||'kode')+'</span><span class="dots"><i></i><i></i><i></i></span><span>Menulis kode, '+L.length+' baris</span></div><pre><code>'+esc(L.slice(-6).join('\n'))+'</code></pre></div>'}
-function md(t,mi,live){const CB=[];let fk=0,bn=0;
+/* Perbaikan: kode pembuat Word/Excel/PPT di blok javascript biasa otomatis jadi kartu file siap unduh */
+function fixFences(t){
+  if(!t)return t;
+  const nm=((chat()?.title||'').replace(/[^\w\- ]+/g,'').trim().slice(0,30)||'dokumen').replace(/ +/g,'_');
+  const isGen=c=>/new\s+PptxGenJS|docx\.Packer|Packer\.to(Blob|Buffer)|ExcelJS\.Workbook|new\s+ExcelJS|=\s*docx\b/.test(c);
+  const ext=c=>/PptxGenJS/.test(c)?'pptx':/ExcelJS/.test(c)?'xlsx':'docx';
+  const fix=c=>/^\s*\/\/\s*JS\b/.test(c)?c:'// JS\n'+c;
+  t=t.replace(/```(?:javascript|js|node)[ \t]*\n([\s\S]*?)```/g,(m,c)=>isGen(c)?'```file:'+nm+'.'+ext(c)+'\n'+fix(c).replace(/\n$/,'')+'\n```':m);
+  return t.replace(/```(?:javascript|js|node)[ \t]*\n((?:(?!```)[\s\S])*)$/,(m,c)=>isGen(c)?'```file:'+nm+'.'+ext(c)+'\n'+c:m)}
+function md(t,mi,live){t=fixFences(t);const CB=[];let fk=0,bn=0;
   t=t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(_,n,c)=>{GF.push([n.trim(),c.replace(/\n$/,''),mi,fk++]);return '\n\uE000F'+(GF.length-1)+'\uE001\n'}).replace(/```file:([^\n`]*)(?:\n[\s\S]*)?$/,(_,n)=>'\n\uE000W'+n.trim()+'\uE001').replace(/```([\w+#.-]*)\n?([\s\S]*?)```/g,(_,l,c)=>{CB.push(code(l,c,mi+'-'+(bn++)));return '\n\uE000C'+(CB.length-1)+'\uE001\n'}).replace(/```([\w+#.-]*)\n?([\s\S]*)$/,(_,l,c)=>{CB.push(live?liveCode(l,c):code(l,c,mi+'-'+(bn++)));return '\n\uE000C'+(CB.length-1)+'\uE001\n'});
   return blocks(esc(t)).replace(/\uE000C(\d+)\uE001/g,(_,i)=>CB[+i]).replace(/\uE000F(\d+)\uE001/g,(_,i)=>fcard(+i)).replace(/\uE000W([^\uE001]*)\uE001/g,(_,n)=>'<div class="fcard"><div><b>'+esc(n)+'</b><small>Sedang dibuat...</small></div></div>')}
 const chat=()=>S.chats.find(c=>c.id===S.cur);
@@ -447,6 +454,7 @@ async function gen(c){const bot={role:'assistant',content:'',st:'Menghubungi mod
         for(const l of ls){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(!d||d==='[DONE]')continue;
           try{const j=JSON.parse(d);if(j.usage)usage=j.usage;const p=j.choices?.[0]?.delta?.content;if(p){bot.content+=p;if(!bot.ttft)bot.ttft=Date.now()-t0;stream()}}catch(e){}}}
       if(!bot.content)bot.content='(Balasan kosong)';
+      bot.content=fixFences(bot.content);
     }catch(e){
       if(e.name==='AbortError'){used=used||m.id;bot.model=bot.model||m.id;if(!bot.content)bot.content='(Dihentikan)'}
       else{bot.content='Gagal menghubungi API. '+(e.message==='Failed to fetch'?'Periksa Base URL, koneksi internet, atau kemungkinan pemblokiran CORS oleh server.':e.message);bot.err=true}}
@@ -468,7 +476,7 @@ async function diagnose(){readSet();const d=$('#diag'),bad=t=>{d.style.color='va
     const ids=((await r.json()).data||[]).map(m=>m.id);$('#models').innerHTML=ids.map(i=>`<option value="${esc(i)}">`).join('');
     d.style.color='var(--acc)';d.textContent='Koneksi berhasil. '+ids.length+' model ditemukan.'+(S.cfg.models.some(m=>!ids.includes(m.id))?' Tapi ada nama model di Daftar model yang tidak ada di server, periksa ejaannya.':'');
   }catch(e){bad('Browser tidak bisa menjangkau server ('+e.message+'). Kemungkinan: tidak ada internet, Base URL salah ketik, atau server memblokir akses langsung dari browser (CORS).')}}
-const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, presentasi, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Format: .docx, .xlsx, dan .pptx WAJIB ditulis sebagai kode JavaScript pembuat file, dengan baris pertama persis // JS. Kode itu adalah isi fungsi async yang boleh memakai library global PptxGenJS (v3), docx (v8: docx.Document, docx.Packer, docx.Paragraph, docx.TextRun, docx.Table, docx.HeadingLevel, dan seterusnya), serta ExcelJS (v4), dan harus diakhiri return Blob. Contoh: return await docx.Packer.toBlob(doc); return await pres.write({outputType:"blob"}); return new Blob([await wb.xlsx.writeBuffer()]). Rancang seperti desainer profesional: palet warna konsisten, pilihan font, judul, tabel berformat, grafik (addChart di pptx), sel berwarna, rumus, lebar kolom, freeze pane, header dan nomor halaman, sampul dan struktur yang jelas. Tidak ada akses internet, jadi jangan memakai gambar dari URL. Isi harus lengkap, benar, dan memakai bahasa pengguna. File .pdf ditulis dengan markdown (# judul, ## subjudul, - poin, **tebal**, tabel dengan tanda |); .html satu halaman lengkap dengan CSS dan JS di dalamnya; serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas); pengguna bisa mengunduhnya sebagai PNG atau JPG dari editor. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama. Setelah blok file, beri penjelasan singkat.';
+const FILE_PROMPT='Kamu bisa membuat file untuk pengguna. Jika pengguna meminta file (dokumen, laporan, tabel, presentasi, kode, dan sebagainya), tulis isi file secara lengkap di dalam blok persis seperti ini: tiga backtick lalu file:namafile.ext, baris baru, isi file, baris baru, tiga backtick penutup. Format: .docx, .xlsx, dan .pptx WAJIB ditulis sebagai kode JavaScript pembuat file, dengan baris pertama persis // JS. Kode itu adalah isi fungsi async yang boleh memakai library global PptxGenJS (v3), docx (v8: docx.Document, docx.Packer, docx.Paragraph, docx.TextRun, docx.Table, docx.HeadingLevel, dan seterusnya), serta ExcelJS (v4), dan harus diakhiri return Blob. Contoh: return await docx.Packer.toBlob(doc); return await pres.write({outputType:"blob"}); return new Blob([await wb.xlsx.writeBuffer()]). Rancang seperti desainer profesional: palet warna konsisten, pilihan font, judul, tabel berformat, grafik (addChart di pptx), sel berwarna, rumus, lebar kolom, freeze pane, header dan nomor halaman, sampul dan struktur yang jelas. Tidak ada akses internet, jadi jangan memakai gambar dari URL. Isi harus lengkap, benar, dan memakai bahasa pengguna. File .pdf ditulis dengan markdown (# judul, ## subjudul, - poin, **tebal**, tabel dengan tanda |); .html satu halaman lengkap dengan CSS dan JS di dalamnya; serta .txt .md .csv .json .py .js dan sejenisnya. Jangan membuat file untuk jawaban biasa. Satu blok untuk satu file. Di dalam isi file jangan memakai tiga backtick. Kode yang panjang (lebih dari sekitar 25 baris), aplikasi, halaman web, dan semua gambar harus ditulis sebagai file, bukan blok kode biasa. Untuk gambar, ilustrasi, logo, atau diagram, buat file .svg lengkap (elemen svg dengan atribut viewBox dan warna yang jelas); pengguna bisa mengunduhnya sebagai PNG atau JPG dari editor. Jika pengguna minta mengubah file yang sudah ada, tulis ulang file itu secara lengkap dengan nama yang sama. Setelah blok file, beri penjelasan singkat. ATURAN PENTING: untuk permintaan Word, Excel, atau PowerPoint, JANGAN PERNAH menulis kode di blok javascript biasa. Selalu pakai blok file:nama.docx (atau .xlsx / .pptx) dengan baris pertama // JS. JANGAN menyuruh pengguna menyalin kode, menjalankan kode, atau membuka editor: aplikasi otomatis menampilkan tombol Unduh. Setelah blok file cukup tulis 2-3 kalimat ringkasan isi, tanpa petunjuk teknis. Jaga kode tetap ringkas (di bawah 250 baris), jangan pakai TableOfContents atau fitur rumit, dan jangan memakai require, import, atau fs.';
 const MIME={csv:'text/csv;charset=utf-8',json:'application/json',html:'text/html',md:'text/markdown'};
 function xe(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
 function line(l){let x=l.replace(/\*\*/g,''),lv=0;const h=x.match(/^(#{1,3})\s+(.*)/);if(h){x=h[2];lv=h[1].length}else if(/^\s*[-*]\s+/.test(x))x='\u2022  '+x.replace(/^\s*[-*]\s+/,'');return{x,lv}}
@@ -534,7 +542,7 @@ const GEN_LIBS='<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index
 function runGen(code){return new Promise((res,rej)=>{const id=Math.random().toString(36).slice(2),f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts');f.style.display='none';
   const done=(fn,v)=>{clearTimeout(tm);removeEventListener('message',h);f.remove();fn(v)},fail=m=>{const er=new Error(m);er.gen=1;done(rej,er)};
   const h=e=>{const d=e.data;if(e.source!==f.contentWindow||!d||d.id!==id)return;d.err?fail(d.err):done(res,d.blob)};
-  const tm=setTimeout(()=>fail('waktu habis (90 detik)'),90000);addEventListener('message',h);
+  const tm=setTimeout(()=>fail('waktu habis (90 detik). Cek internet, library dimuat dari jsdelivr'),90000);addEventListener('message',h);
   f.srcdoc=GEN_LIBS+'<script>(async()=>{const id='+JSON.stringify(id)+';try{const fn=async()=>{'+code.replace(/<\/script/gi,'<\\/script')+'\n};let r=await fn();if(r instanceof ArrayBuffer||ArrayBuffer.isView(r))r=new Blob([r]);if(!(r instanceof Blob))throw new Error("kode harus return Blob");parent.postMessage({id:id,blob:r},"*")}catch(e){parent.postMessage({id:id,err:String(e&&e.message||e)},"*")}})()<\/script>';
   document.body.appendChild(f)})}
 async function copyText(c){try{await navigator.clipboard.writeText(c)}catch(e){const a=document.createElement('textarea');a.value=c;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(x){}a.remove()}}
@@ -652,7 +660,7 @@ $('#wipe').onclick=()=>{if(confirm('Hapus semua percakapan, statistik, dan penga
 /* editor file */
 let ED=null,edT;
 const PV=n=>/\.(html?|svg)$/i.test(n);
-function setBlock(t,k,body){let n=-1;return t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(m,nm)=>(++n===k)?'```file:'+nm+'\n'+body.replace(/```/g,'` ` `')+'\n```':m)}
+function setBlock(t,k,body){t=fixFences(t);let n=-1;return t.replace(/```file:([^\n`]+)\n([\s\S]*?)```/g,(m,nm)=>(++n===k)?'```file:'+nm+'\n'+body.replace(/```/g,'` ` `')+'\n```':m)}
 function openEditor(i){const g=GF[i];if(!g)return;ED={name:g[0],mi:g[2],k:g[3],src:g[1]};$('#et').textContent=g[0];$('#esrc').value=g[1];$('.ebody').classList.toggle('nopv',!PV(g[0]));$('#epng').hidden=$('#ejpg').hidden=!/\.svg$/i.test(g[0]);$('#ed').textContent='';$('#editor').hidden=false;edPrev();$('#esrc').focus()}
 function edPrev(){if(!ED||!PV(ED.name))return;const v=$('#esrc').value,sv=/\.svg$/i.test(ED.name),f=document.createElement('iframe');f.title='Pratinjau';f.setAttribute('sandbox',sv?'':'allow-scripts');f.srcdoc=sv?'<style>html,body{margin:0;height:100%}body{display:grid;place-items:center;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>'+v:v;$('#epv').replaceChildren(f)}
 function closeEd(){if(!ED)return;if($('#esrc').value!==ED.src&&!confirm('Perubahan belum disimpan. Tutup tanpa menyimpan?'))return;$('#editor').hidden=true;$('#epv').replaceChildren();ED=null}
@@ -702,7 +710,7 @@ $('#bgimgf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{BGI=a
 $('#rot').onclick=()=>{ROT=(ROT+1)%4;drawImg()};$('#flip').onclick=()=>{FLP=!FLP;drawImg()};
 $('#frs').onclick=()=>{['fbr','fco','fgr'].forEach(i=>$('#'+i).value=0);drawImg()};
 $('#bgdl').onclick=()=>{const cv=$('#bgc'),f=$('#fmt').value,mime=f==='png'?'image/png':f==='webp'?'image/webp':'image/jpeg';let src=cv;if(f==='jpg'){src=document.createElement('canvas');src.width=cv.width;src.height=cv.height;const x=src.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,src.width,src.height);x.drawImage(cv,0,0)}src.toBlob(b=>b?bgSave(b,'gambar.'+f):toast('Format ini tidak didukung browser'),mime,0.92)};
-const VER='2026-10-16.5';
+const VER='2026-10-16.6';
 async function hardRefresh(){try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.unregister()))}catch(e){}try{await flush()}catch(e){}location.replace(location.pathname+'?r='+Date.now())}
 async function chkVer(){try{const r=await fetch(location.pathname+'?c='+Date.now(),{cache:'no-store'});if(!r.ok)return;const m=(await r.text()).match(new RegExp("const VER"+"='([^']+)'"));if(m&&m[1]!==VER)$('#upd').hidden=false}catch(e){}}
 $('#ver').textContent=VER;$('#refr').onclick=hardRefresh;$('#updGo').onclick=hardRefresh;
